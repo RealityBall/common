@@ -1,18 +1,19 @@
 package org.bustos.realityball.common
 
+import akka.actor.ActorSystem
+import akka.io.IO
+import akka.pattern.ask
+import akka.util.Timeout
+import org.bustos.realityball.common.RealityballConfig._
+import org.joda.time.DateTime
+import org.slf4j.LoggerFactory
 import spray.can.Http
 import spray.http._
 import spray.httpx.ResponseTransformation._
+import spray.json._
+
 import scala.concurrent._
 import scala.concurrent.duration._
-import akka.pattern.ask
-import akka.util.{ Timeout, ByteString }
-import akka.actor.{ ActorSystem }
-import akka.io.IO
-import spray.json._
-import DefaultJsonProtocol._
-import org.slf4j.LoggerFactory
-import RealityballConfig._
 
 object WeatherLoadRecords {
   case class ForecastDate(pretty: String)
@@ -58,9 +59,9 @@ object WeatherJsonProtocol extends DefaultJsonProtocol {
 
 class Weather(postalCode: String) {
 
+  import RealityballRecords._
   import WeatherJsonProtocol._
   import WeatherLoadRecords._
-  import RealityballRecords._
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -81,7 +82,7 @@ class Weather(postalCode: String) {
     val format = new java.text.SimpleDateFormat("yyyyMMdd HH:mm")
     val date = format.parse(time)
     hourlyForecasts.reverse.find { _.FCTTIME.epoch.toLong < date.getTime } match {
-      case Some(x) => GameConditions("", "", "", false, x.temp.english.toInt, "", x.wspd.english.toInt, "", x.pop, x.condition)
+      case Some(x) => GameConditions("", new DateTime, "", false, x.temp.english.toInt, "", x.wspd.english.toInt, "", x.pop, x.condition)
       case None    => null
     }
   }
@@ -90,7 +91,7 @@ class Weather(postalCode: String) {
     val request = HttpRequest(HttpMethods.GET, WUNDERGROUND_APIURL + WUNDERGROUND_APIKEY + "/history_" + time.split(' ')(0) + "/q/" + postalCode + ".json")
     val response = Await.result((IO(Http) ? request).mapTo[HttpResponse], 30 seconds) ~> unmarshal[String]
     response.parseJson.convertTo[HistoricalObservations].history.observations.toList.reverse.find { x => x.date.year + x.date.mon + x.date.mday + " " + x.date.hour + ":" + x.date.min < time } match {
-      case Some(x) => GameConditions("", "", "", false, x.tempi.toDouble.toInt, "", x.wspdi.toDouble.toInt, "", "", x.conds)
+      case Some(x) => GameConditions("", new DateTime, "", false, x.tempi.toDouble.toInt, "", x.wspdi.toDouble.toInt, "", "", x.conds)
       case None    => null
     }
   }

@@ -16,6 +16,10 @@ object RealityballConfig {
   val WUNDERGROUND_APIURL = "http://api.wunderground.com/api/"
   val WUNDERGROUND_APIKEY = "eeb51f60b8bd49aa"
 
+  val CurrentYear = {
+    (new DateTime).getYear
+  }
+
   val db = {
     val mysqlURL = envOrElse("MLB_MYSQL_URL", "jdbc:mysql://localhost:3306/mlbretrosheet")
     val mysqlUser = envOrElse("MLB_MYSQL_USER", "root")
@@ -26,6 +30,7 @@ object RealityballConfig {
   val CcyymmddFormatter = DateTimeFormat.forPattern("yyyyMMdd")
   val CcyymmddDelimFormatter = DateTimeFormat.forPattern("yyyy_MM_dd")
   val CcyymmddSlashDelimFormatter = DateTimeFormat.forPattern("yyyy/MM/dd")
+  val ISOdateFormatter = DateTimeFormat.forPattern("yyyy-MM-dd")
   val YearFormatter = DateTimeFormat.forPattern("yyyy")
 
   val MovingAverageWindow = 25
@@ -46,7 +51,7 @@ object RealityballConfig {
   val BaseOnBalls = "BaseOnBalls"
 
   // Threshold that makes a day productive
-  val ProductionThreshold = 1.0
+  val ProductionThreshold = 2.0
 
   // Mean + 1 SD
   val StrikeOutBatterStyleThreshold = (0.206 + 0.062)

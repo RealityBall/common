@@ -1,7 +1,9 @@
 package org.bustos.realityball.common
 
+import org.joda.time.DateTime
 import spray.json._
 import DefaultJsonProtocol._
+import RealityballConfig._
 
 class GoogleCell(val v: Any) {}
 class GoogleColumn(val id: String, val label: String, val typeName: String) {}
@@ -11,10 +13,10 @@ object GoogleCellJsonProtocol extends DefaultJsonProtocol {
 
   implicit object GoogleCellFormat extends RootJsonFormat[GoogleCell] {
     def write(c: GoogleCell) = c.v match {
-      case x: String => JsObject("v" -> JsString(x))
-      case x: Int    => JsObject("v" -> JsNumber(x))
-      case x: Double => JsObject("v" -> JsNumber(x))
-      // TODO: Handle other basic types (e.g. Date)
+      case x: String   => JsObject("v" -> JsString(x))
+      case x: Int      => JsObject("v" -> JsNumber(x))
+      case x: Double   => JsObject("v" -> JsNumber(x))
+      case x: DateTime => JsObject("v" -> JsString(ISOdateFormatter.print(x)))
     }
     def read(value: JsValue) = value match {
       case _ => deserializationError("Undefined Read")
