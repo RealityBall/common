@@ -2,73 +2,61 @@ package org.bustos.realityball.common
 
 import java.sql.Timestamp
 
+import org.bustos.realityball.common.RealityballConfig._
 import org.joda.time._
 import org.joda.time.format._
-import scala.slick.driver.MySQLDriver.simple._
-import scala.util.Properties.envOrNone
+import slick.jdbc.MySQLProfile.api._
+import slick.lifted.Query
 import spray.json._
-import DefaultJsonProtocol._
-import scala.slick.jdbc.{ GetResult, StaticQuery => Q }
-import RealityballConfig._
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration._
 
 class RealityballData {
 
-  import RealityballRecords._
   import GoogleTableJsonProtocol._
+  import RealityballRecords._
 
   def teams(year: String): List[Team] = {
-    db.withSession { implicit session =>
-      if (year == "All" || year.toInt > 2014) {
-        teamsTable.filter(_.year === "2014").sortBy(_.mnemonic).list
-      } else {
-        teamsTable.filter(_.year === year).sortBy(_.mnemonic).list
-      }
+    if (year == "All" || year.toInt > 2014) {
+      Await.result(db.run(teamsTable.filter(_.year === "2014").sortBy(_.mnemonic).result), Inf).toList
+    } else {
+      Await.result(db.run(teamsTable.filter(_.year === year).sortBy(_.mnemonic).result), Inf).toList
     }
   }
 
   def teamFromName(name: String): Team = {
-    db.withSession { implicit session =>
-      teamsTable.filter(_.mlbComName === name).sortBy(_.year.desc).list.head
-    }
+    Await.result(db.run(teamsTable.filter(_.mlbComName === name).sortBy(_.year.desc).result), Inf).head
   }
 
   def mlbComIdFromRetrosheet(team: String): String = {
-    db.withSession { implicit session =>
-      teamsTable.filter(_.mnemonic === team).map(_.mlbComId).list.head
-    }
+      Await.result(db.run(teamsTable.filter(_.mnemonic === team).map(_.mlbComId).result), Inf).head
   }
 
   def games(date: DateTime): List[Game] = {
-    db.withSession { implicit session =>
-      val todaysGames = gamesTable.filter({ x => x.date === date }).list
+      val todaysGames = Await.result(db.run(gamesTable.filter({ x => x.date === date }).result), Inf).toList
       if (todaysGames.isEmpty) {
-        gamedayScheduleTable.filter({ x => x.date === date}).list.map (x => Game(x.id, x.homeTeam, x.visitingTeam, x.site, date, x.number, x.startingHomePitcher, x.startingVisitingPitcher))
+        Await.result(db.run(gamedayScheduleTable.filter({ x => x.date === date}).result), Inf).toList.map ({ x => Game(x.id, x.homeTeam, x.visitingTeam, x.site, date, x.number, x.startingHomePitcher, x.startingVisitingPitcher) })
       }
       else todaysGames
-    }
   }
 
   def startingBatters(game: Game, side: Int, year: String): List[Player] = {
-    db.withSession { implicit session =>
-      val query = for {
+      val query = (for {
         hitters <- hitterStats if (hitters.gameId === game.id && hitters.lineupPosition > 0)
         players <- playersTable if (players.id === hitters.id)
-      } yield (players, hitters)
-      query.filter({ x => x._1.year === year && x._2.side === side && x._2.pitcherIndex === 1 }).sortBy({ x => x._2.lineupPosition }).map({ x => x._1 }).list
-    }
+      } yield (players, hitters)).filter({ x => x._1.year === year && x._2.side === side && x._2.pitcherIndex === 1 }).sortBy({ x => x._2.lineupPosition})
+      Await.result(db.run(query.result), Inf).map({ x => x._1 }).toList
   }
 
   def latestLineupRegime(game: Game, player: Player): Int = {
-    db.withSession { implicit session =>
-      val rows = hitterStats.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).map({ _.lineupPositionRegime }).take(1).list
+      val rows = Await.result(db.run(hitterStats.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).map({ _.lineupPositionRegime }).take(1).result), Inf).toList
       if (rows.isEmpty) 0
       else rows.head
-    }
   }
 
   def recentFantasyData(game: Game, player: Player, lookback: Int): List[HitterFantasyDaily] = {
-    db.withSession { implicit session =>
-      val rows = hitterFantasyTable.filter({ x => x.id === player.id && x.date <= game.date})
+      val rows = Await.result(db.run(hitterFantasyTable.filter({ x => x.id === player.id && x.date <= game.date})
         .groupBy(_.date)
         .map({
           case (date, group) => (date, group.map(_.productionRate).sum, group.map(_.daysSinceProduction).sum,
@@ -76,34 +64,27 @@ class RealityballData {
             group.map(_.RHdraftKings).sum, group.map(_.LHdraftKings).sum, group.map(_.draftKings).sum,
             group.map(_.RHdraftster).sum, group.map(_.LHdraftster).sum, group.map(_.draftster).sum)
         })
-        .sortBy({ _._1.desc }).take(lookback).list
+        .sortBy({ _._1.desc }).take(lookback).result), Inf).toList
       if (rows.isEmpty) List.empty[HitterFantasyDaily]
       else rows.map({ x => HitterFantasyDaily(x._1, player.id, game.id, 0, "", 0, x._2, x._3.get, x._4, x._5, x._6, x._7, x._8, x._9, x._10, x._11, x._12) })
-    }
   }
 
   def latestFantasyMovData(game: Game, player: Player): HitterFantasy = {
-    db.withSession { implicit session =>
-      val rows = hitterFantasyMovingTable.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).take(1).list
+      val rows = Await.result(db.run(hitterFantasyMovingTable.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).take(1).result), Inf).toList
       if (rows.isEmpty) HitterFantasy(new DateTime, "", "", 0, None, None, None, None, None, None, None, None, None)
       else rows.head
-    }
   }
 
   def latestFantasyVolData(game: Game, player: Player): HitterFantasy = {
-    db.withSession { implicit session =>
-      val rows = hitterFantasyVolatilityTable.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).take(1).list
+      val rows = Await.result(db.run(hitterFantasyVolatilityTable.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).take(1).result), Inf).toList
       if (rows.isEmpty) HitterFantasy(new DateTime, "", "", 0, None, None, None, None, None, None, None, None, None)
       else rows.head
-    }
   }
 
   def latestBAdata(game: Game, player: Player): HitterStatsMoving = {
-    db.withSession { implicit session =>
-      val rows = hitterMovingStats.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).take(1).list
+      val rows = Await.result(db.run(hitterMovingStats.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).take(1).result), Inf).toList
       if (rows.isEmpty) HitterStatsMoving(new DateTime, "", "", 0, None, None, None, None, None, None, None, None, None, "", "", "")
       else rows.head
-    }
   }
 
   def latestBAtrends(game: Game, player: Player, pitcher: Player): Double = {
@@ -129,28 +110,24 @@ class RealityballData {
         } else 0.0
       }
     }
-
-    db.withSession { implicit session =>
-      slope(hitterMovingStats.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).take(MovingAverageWindow).list)
-    }
+    val stats = Await.result(db.run(hitterMovingStats.filter({ x => x.id === player.id && x.date < game.date }).sortBy({ _.date.desc }).take(MovingAverageWindow).result), Inf).toList
+    slope(stats)
   }
 
   def playerFromRetrosheetId(retrosheetId: String, year: String): Player = {
-    db.withSession { implicit session =>
-      val playerList = {
-        if (year == "") {
-          val playerList = playersTable.filter({ x => x.id === retrosheetId }).list
-          if (playerList.isEmpty) throw new IllegalStateException("No one found with Retrosheet ID: " + retrosheetId)
-          else playerList
-        } else {
-          val playerList = playersTable.filter({ x => x.id === retrosheetId && x.year === year }).list
-          if (playerList.isEmpty) throw new IllegalStateException("No one found with Retrosheet ID: " + retrosheetId + " in year " + year)
-          else if (playerList.length > 1) throw new IllegalStateException("Non Unique Retrosheet ID: " + retrosheetId + " in year " + year)
-          else playerList
-        }
+    val playerList = {
+      if (year == "") {
+        val playerList = Await.result(db.run(playersTable.filter({ x => x.id === retrosheetId }).result), Inf).toList
+        if (playerList.isEmpty) throw new IllegalStateException("No one found with Retrosheet ID: " + retrosheetId)
+        else playerList
+      } else {
+        val playerList = Await.result(db.run(playersTable.filter({ x => x.id === retrosheetId && x.year === year }).result), Inf).toList
+        if (playerList.isEmpty) throw new IllegalStateException("No one found with Retrosheet ID: " + retrosheetId + " in year " + year)
+        else if (playerList.length > 1) throw new IllegalStateException("Non Unique Retrosheet ID: " + retrosheetId + " in year " + year)
+        else playerList
       }
-      playerList.head
     }
+    playerList.head
   }
 
   def playerFromMlbId(mlbId: String, year: String): Player = {
@@ -164,132 +141,115 @@ class RealityballData {
             println("")
           }
           val mlbPlayer = new MlbPlayer(mlbId)
-          db.withSession { implicit session =>
-            playersTable += mlbPlayer.player
-          }
+          Await.result(db.run(playersTable += mlbPlayer.player), Inf)
           mlbPlayer.player
         }
       }
     }
 
-    db.withSession { implicit session =>
-      val mappingList = idMappingTable.filter({ x => x.mlbId === mlbId }).list
-      if (mappingList.isEmpty) {
-        if (mlbId == "502304") return playersTable.filter({ x => x.id === "carpd001" }).list.head // Crunchtime Baseball is missing
-        else {
-          return useMlbId
-        }
+    val mappingList = Await.result(db.run(idMappingTable.filter({ x => x.mlbId === mlbId }).result), Inf).toList
+    if (mappingList.isEmpty) {
+      if (mlbId == "502304") return Await.result(db.run(playersTable.filter({ x => x.id === "carpd001" }).result), Inf).head // Crunchtime Baseball is missing
+      else {
+        return useMlbId
       }
-      else if (mappingList.length > 1) throw new IllegalStateException("Non Unique MLB ID: " + mlbId)
-      try {
-        playerFromRetrosheetId(mappingList.head.retroId, year)
-      } catch {
-        case e: IllegalStateException => useMlbId
-      }
+    }
+    else if (mappingList.length > 1) throw new IllegalStateException("Non Unique MLB ID: " + mlbId)
+    try {
+      playerFromRetrosheetId(mappingList.head.retroId, year)
+    } catch {
+      case e: IllegalStateException => useMlbId
     }
   }
 
   def playerFromName(firstName: String, lastName: String, year: String, team: String): Player = {
-    db.withSession { implicit session =>
-
-      val playerList = playersTable.filter({ x => x.firstName.like(firstName + "%") && x.lastName === lastName && x.year === year }).list
-      if (playerList.isEmpty) {
-        val mapping = mappingForName(firstName, lastName)
-        if (mapping.retroId != "") playerFromRetrosheetId(mapping.retroId, "")
-        else if (mapping.mlbId != "") playerFromMlbId(mapping.mlbId, year)
-        else throw new IllegalStateException("No one found by the name of: " + firstName + " " + lastName)
-      }
-      else if (playerList.length > 1) {
-        if (team != "") {
-          val teamPlayerList = playersTable.filter({ x => x.firstName.like(firstName + "%") && x.lastName === lastName && x.year === year && x.team === team }).list
-          if (teamPlayerList.isEmpty) throw new IllegalStateException("No one found by the name of: " + firstName + " " + lastName)
-          else if (teamPlayerList.length > 1) throw new IllegalStateException("Non Unique Name: " + firstName + " " + lastName)
-          else teamPlayerList.head
-        } else throw new IllegalStateException("Non Unique Name: " + firstName + " " + lastName)
-      } else playerList.head
+    val playerList = Await.result(db.run(playersTable.filter({ x => x.firstName.like(firstName + "%") && x.lastName === lastName && x.year === year }).result), Inf).toList
+    if (playerList.isEmpty) {
+      val mapping = mappingForName(firstName, lastName)
+      if (mapping.retroId != "") playerFromRetrosheetId(mapping.retroId, "")
+      else if (mapping.mlbId != "") playerFromMlbId(mapping.mlbId, year)
+      else throw new IllegalStateException("No one found by the name of: " + firstName + " " + lastName)
     }
+    else if (playerList.length > 1) {
+      if (team != "") {
+        val teamPlayerList = Await.result(db.run(playersTable.filter({ x => x.firstName.like(firstName + "%") && x.lastName === lastName && x.year === year && x.team === team }).result), Inf).toList
+        if (teamPlayerList.isEmpty) throw new IllegalStateException("No one found by the name of: " + firstName + " " + lastName)
+        else if (teamPlayerList.length > 1) throw new IllegalStateException("Non Unique Name: " + firstName + " " + lastName)
+        else teamPlayerList.head
+      } else throw new IllegalStateException("Non Unique Name: " + firstName + " " + lastName)
+    } else playerList.head
   }
 
   def players(team: String, year: String): List[Player] = {
-    db.withSession { implicit session =>
-      if (year == "All") {
-        val groups = playersTable.filter(_.team === team).list.groupBy(_.id)
-        val players = groups.mapValues(_.head).values
-        val partitions = players.partition(_.position != "P")
-        partitions._1.toList.sortBy(_.lastName) ++ partitions._2.toList.sortBy(_.lastName)
-      } else {
-        val partitions = playersTable.filter({ x => x.team === team && x.year === year }).list.partition(_.position != "P")
-        partitions._1.sortBy(_.lastName) ++ partitions._2.sortBy(_.lastName)
-      }
+    if (year == "All") {
+      val groups = Await.result(db.run(playersTable.filter(_.team === team).result), Inf).toList.groupBy(_.id)
+      val players = groups.mapValues(_.head).values
+      val partitions = players.partition(_.position != "P")
+      partitions._1.toList.sortBy(_.lastName) ++ partitions._2.toList.sortBy(_.lastName)
+    } else {
+      val partitions = Await.result(db.run(playersTable.filter({ x => x.team === team && x.year === year }).result), Inf).toList.partition(_.position != "P")
+      partitions._1.sortBy(_.lastName) ++ partitions._2.sortBy(_.lastName)
     }
   }
 
   def mappingForName(firstName: String, lastName: String): IdMapping = {
-    db.withSession { implicit session =>
-      val nameString = firstName + "%" + lastName
-      val mappingList = idMappingTable.filter({ x => x.mlbName like nameString }).list
-      val retroMappingList = idMappingTable.filter({ x => x.retroName like nameString }).list
-      if (mappingList.length == 1) mappingList.head
-      else if (retroMappingList.length == 1) retroMappingList.head
-      else IdMapping("", "", "", "", "", "", "", "", "", "", "", "")
-    }
+    val nameString = firstName + "%" + lastName
+    val mappingList = Await.result(db.run(idMappingTable.filter({ x => x.mlbName like nameString }).result), Inf).toList
+    val retroMappingList = Await.result(db.run(idMappingTable.filter({ x => x.retroName like nameString }).result), Inf).toList
+    if (mappingList.length == 1) mappingList.head
+    else if (retroMappingList.length == 1) retroMappingList.head
+    else IdMapping("", "", "", "", "", "", "", "", "", "", "", "")
   }
 
   def mappingForRetroId(id: String): IdMapping = {
-    db.withSession { implicit session =>
-      val mappingList = idMappingTable.filter({ x => x.retroId === id }).list
-      if (mappingList.length == 1) mappingList.head
-      else IdMapping("", "", "", "", "", "", "", "", "", "", "", "")
-    }
+    val mappingList = Await.result(db.run(idMappingTable.filter({ x => x.retroId === id }).result), Inf).toList
+    if (mappingList.length == 1) mappingList.head
+    else IdMapping("", "", "", "", "", "", "", "", "", "", "", "")
   }
 
   def batterSummary(id: String, year: String): PlayerData = {
-    db.withSession { implicit session =>
-      val playerMnemonic = truePlayerID(id)
-      val mapping = mappingForRetroId(playerMnemonic)
-      if (year == "All") {
-        val player = playersTable.filter(_.id === playerMnemonic).list.head
-        val lineupRegime = hitterStats.filter(_.id === playerMnemonic).map(_.lineupPositionRegime).avg.run.get
-        val RHatBats = hitterRawRH.filter(_.id === playerMnemonic).map(_.RHatBat).sum.run.get
-        val LHatBats = hitterRawLH.filter(_.id === playerMnemonic).map(_.LHatBat).sum.run.get
-        val games = hitterStats.filter({ x => x.id === playerMnemonic && x.pitcherIndex === 1 }).list.length
-        val summary = PlayerSummary(playerMnemonic, lineupRegime, RHatBats, LHatBats, games, mapping.mlbId, mapping.brefId, mapping.espnId)
-        PlayerData(player, summary)
-      } else {
-        val player = playersTable.filter({ x => x.id === playerMnemonic && x.year.startsWith(year) }).list.head
-        val lineupRegime = hitterStats.filter({ x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt }).map(_.lineupPositionRegime).avg.run.get
-        val RHatBats = hitterRawRH.filter({ x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt }).map(_.RHatBat).sum.run.get
-        val LHatBats = hitterRawLH.filter({ x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt }).map(_.LHatBat).sum.run.get
-        val games = hitterStats.filter({ x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt && x.pitcherIndex === 1 }).list.length
-        val summary = PlayerSummary(playerMnemonic, lineupRegime, RHatBats, LHatBats, games, mapping.mlbId, mapping.brefId, mapping.espnId)
-        PlayerData(player, summary)
-      }
+    val playerMnemonic = truePlayerID(id)
+    val mapping = mappingForRetroId(playerMnemonic)
+    if (year == "All") {
+      val player = Await.result(db.run(playersTable.filter(_.id === playerMnemonic).result), Inf).head
+      val lineupRegime = Await.result(db.run(hitterStats.filter(_.id === playerMnemonic).map(_.lineupPositionRegime).avg.result), Inf).head
+      val RHatBats = Await.result(db.run(hitterRawRH.filter(_.id === playerMnemonic).map(_.RHatBat).sum.result), Inf).head
+      val LHatBats = Await.result(db.run(hitterRawLH.filter(_.id === playerMnemonic).map(_.LHatBat).sum.result), Inf).head
+      val games = Await.result(db.run(hitterStats.filter({ x => x.id === playerMnemonic && x.pitcherIndex === 1 }).result), Inf).toList.length
+      val summary = PlayerSummary(playerMnemonic, lineupRegime, RHatBats, LHatBats, games, mapping.mlbId, mapping.brefId, mapping.espnId)
+      PlayerData(player, summary)
+    } else {
+      val player = Await.result(db.run(playersTable.filter({ x => x.id === playerMnemonic && x.year.startsWith(year) }).result), Inf).head
+      val lineupRegime = Await.result(db.run(hitterStats.filter({ x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt }).map(_.lineupPositionRegime).avg.result), Inf).head
+      val RHatBats = Await.result(db.run(hitterRawRH.filter({ x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt }).map(_.RHatBat).sum.result), Inf).head
+      val LHatBats = Await.result(db.run(hitterRawLH.filter({ x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt }).map(_.LHatBat).sum.result), Inf).head
+      val games = Await.result(db.run(hitterStats.filter({ x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt && x.pitcherIndex === 1 }).result), Inf).toList.length
+      val summary = PlayerSummary(playerMnemonic, lineupRegime, RHatBats, LHatBats, games, mapping.mlbId, mapping.brefId, mapping.espnId)
+      PlayerData(player, summary)
     }
   }
 
   def pitcherSummary(id: String, year: String): PitcherData = {
-    db.withSession { implicit session =>
-      val playerMnemonic = truePlayerID(id)
-      val mapping = mappingForRetroId(playerMnemonic)
-      if (year == "All") {
-        val player = playersTable.filter(_.id === playerMnemonic).list.head
-        val daysSinceLastApp = pitcherStats.filter(_.id === playerMnemonic).map(_.daysSinceLastApp).avg.run.get
-        val win = pitcherStats.filter(x => x.id === playerMnemonic && x.win === 1).length.run
-        val loss = pitcherStats.filter(x => x.id === playerMnemonic && x.loss === 1).length.run
-        val save = pitcherStats.filter(x => x.id === playerMnemonic && x.save === 1).length.run
-        val games = pitcherStats.filter(x => x.id === playerMnemonic).length.run
-        val summary = PitcherSummary(playerMnemonic, daysSinceLastApp, win, loss, save, games, mapping.mlbId, mapping.brefId, mapping.espnId)
-        PitcherData(player, summary)
-      } else {
-        val player = playersTable.filter(x => x.id === playerMnemonic && x.year.startsWith(year)).list.head
-        val daysSinceLastApp = pitcherStats.filter(x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt).map(_.daysSinceLastApp).avg.run.get
-        val win = pitcherStats.filter(x => x.id === playerMnemonic && x.win === 1 && yearFromDate(x.date) === year.toInt).length.run
-        val loss = pitcherStats.filter(x => x.id === playerMnemonic && x.loss === 1 && yearFromDate(x.date) === year.toInt).length.run
-        val save = pitcherStats.filter(x => x.id === playerMnemonic && x.save === 1 && yearFromDate(x.date) === year.toInt).length.run
-        val games = pitcherStats.filter(x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt).length.run
-        val summary = PitcherSummary(playerMnemonic, daysSinceLastApp, win, loss, save, games, mapping.mlbId, mapping.brefId, mapping.espnId)
-        PitcherData(player, summary)
-      }
+    val playerMnemonic = truePlayerID(id)
+    val mapping = mappingForRetroId(playerMnemonic)
+    if (year == "All") {
+      val player = Await.result(db.run(playersTable.filter(_.id === playerMnemonic).result), Inf).head
+      val daysSinceLastApp = Await.result(db.run(pitcherStats.filter(_.id === playerMnemonic).map(_.daysSinceLastApp).avg.result), Inf).head
+      val win = Await.result(db.run(pitcherStats.filter(x => x.id === playerMnemonic && x.win === 1).result), Inf).length
+      val loss = Await.result(db.run(pitcherStats.filter(x => x.id === playerMnemonic && x.loss === 1).result), Inf).length
+      val save = Await.result(db.run(pitcherStats.filter(x => x.id === playerMnemonic && x.save === 1).result), Inf).length
+      val games = Await.result(db.run(pitcherStats.filter(x => x.id === playerMnemonic).result), Inf).length
+      val summary = PitcherSummary(playerMnemonic, daysSinceLastApp, win, loss, save, games, mapping.mlbId, mapping.brefId, mapping.espnId)
+      PitcherData(player, summary)
+    } else {
+      val player = Await.result(db.run(playersTable.filter(x => x.id === playerMnemonic && x.year.startsWith(year)).result), Inf).head
+      val daysSinceLastApp = Await.result(db.run(pitcherStats.filter(x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt).map(_.daysSinceLastApp).avg.result), Inf).head
+      val win = Await.result(db.run(pitcherStats.filter(x => x.id === playerMnemonic && x.win === 1 && yearFromDate(x.date) === year.toInt).result), Inf).length
+      val loss = Await.result(db.run(pitcherStats.filter(x => x.id === playerMnemonic && x.loss === 1 && yearFromDate(x.date) === year.toInt).result), Inf).length
+      val save = Await.result(db.run(pitcherStats.filter(x => x.id === playerMnemonic && x.save === 1 && yearFromDate(x.date) === year.toInt).result), Inf).length
+      val games = Await.result(db.run(pitcherStats.filter(x => x.id === playerMnemonic && yearFromDate(x.date) === year.toInt).result), Inf).length
+      val summary = PitcherSummary(playerMnemonic, daysSinceLastApp, win, loss, save, games, mapping.mlbId, mapping.brefId, mapping.espnId)
+      PitcherData(player, summary)
     }
   }
 
@@ -342,9 +302,7 @@ class RealityballData {
   }
 
   def years: List[String] = {
-    db.withSession { implicit session =>
-      "All" :: (Q.queryNA[String]("select distinct(year(date)) as year from games order by year").list)
-    }
+    "All" :: Await.result(db.run(sql"""select distinct(year(date)) as year from games order by year""".as[String]), Inf).toList
   }
 
   def hitterStatsQuery(id: String, year: String): Query[HitterDailyStatsTable, HitterDailyStatsTable#TableElementType, Seq] = {
@@ -388,220 +346,175 @@ class RealityballData {
   }
 
   def BA(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterStatsQuery(id, year).map(p => (p.date, p.battingAverage, p.LHbattingAverage, p.RHbattingAverage)).list
-      playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
+    val playerStats = Await.result(db.run(hitterStatsQuery(id, year).map(p => (p.date, p.battingAverage, p.LHbattingAverage, p.RHbattingAverage)).result), Inf).toList
+    playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
   }
 
   def movingBA(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterMovingStatsQuery(id, year).map(p => (p.date, p.battingAverageMov, p.LHbattingAverageMov, p.RHbattingAverageMov)).list
-      playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
+    val playerStats = Await.result(db.run(hitterMovingStatsQuery(id, year).map(p => (p.date, p.battingAverageMov, p.LHbattingAverageMov, p.RHbattingAverageMov)).result), Inf).toList
+    playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
   }
 
   def volatilityBA(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterVolatilityStatsQuery(id, year).map(p => (p.date, p.battingVolatility, p.LHbattingVolatility, p.RHbattingVolatility)).list
-      playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
+    val playerStats = Await.result(db.run(hitterVolatilityStatsQuery(id, year).map(p => (p.date, p.battingVolatility, p.LHbattingVolatility, p.RHbattingVolatility)).result), Inf).toList
+    playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
   }
 
   def dailyBA(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterStatsQuery(id, year).map(p => (p.date, p.dailyBattingAverage, p.LHdailyBattingAverage, p.RHdailyBattingAverage)).list
-      playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
+    val playerStats = Await.result(db.run(hitterStatsQuery(id, year).map(p => (p.date, p.dailyBattingAverage, p.LHdailyBattingAverage, p.RHdailyBattingAverage)).result), Inf).toList
+    playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
   }
 
   def fantasy(id: String, year: String, gameName: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = {
-        gameName match {
-          case "FanDuel"    => hitterFantasyQuery(id, year).map(p => (p.date, p.fanDuel, p.LHfanDuel, p.RHfanDuel)).list
-          case "DraftKings" => hitterFantasyQuery(id, year).map(p => (p.date, p.draftKings, p.LHdraftKings, p.RHdraftKings)).list
-          case "Draftster"  => hitterFantasyQuery(id, year).map(p => (p.date, p.draftster, p.LHdraftster, p.RHdraftster)).list
-        }
+    val playerStats = {
+      gameName match {
+        case "FanDuel"    => Await.result(db.run(hitterFantasyQuery(id, year).map(p => (p.date, p.fanDuel, p.LHfanDuel, p.RHfanDuel)).result), Inf).toList
+        case "DraftKings" => Await.result(db.run(hitterFantasyQuery(id, year).map(p => (p.date, p.draftKings, p.LHdraftKings, p.RHdraftKings)).result), Inf).toList
+        case "Draftster"  => Await.result(db.run(hitterFantasyQuery(id, year).map(p => (p.date, p.draftster, p.LHdraftster, p.RHdraftster)).result), Inf).toList
       }
-      playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
     }
+    playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
   }
 
   def fantasyMoving(id: String, year: String, gameName: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = {
-        gameName match {
-          case "FanDuel"    => hitterFantasyMovingQuery(id, year).map(p => (p.date, p.fanDuel, p.LHfanDuel, p.RHfanDuel)).list
-          case "DraftKings" => hitterFantasyMovingQuery(id, year).map(p => (p.date, p.draftKings, p.LHdraftKings, p.RHdraftKings)).list
-          case "Draftster"  => hitterFantasyMovingQuery(id, year).map(p => (p.date, p.draftster, p.LHdraftster, p.RHdraftster)).list
-        }
+    val playerStats = {
+      gameName match {
+        case "FanDuel"    => Await.result(db.run(hitterFantasyMovingQuery(id, year).map(p => (p.date, p.fanDuel, p.LHfanDuel, p.RHfanDuel)).result), Inf).toList
+        case "DraftKings" => Await.result(db.run(hitterFantasyMovingQuery(id, year).map(p => (p.date, p.draftKings, p.LHdraftKings, p.RHdraftKings)).result), Inf).toList
+        case "Draftster"  => Await.result(db.run(hitterFantasyMovingQuery(id, year).map(p => (p.date, p.draftster, p.LHdraftster, p.RHdraftster)).result), Inf).toList
       }
-      playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
     }
+    playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
   }
 
   def slugging(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterStatsQuery(id, year).map(p => (p.date, p.sluggingPercentage, p.LHsluggingPercentage, p.RHsluggingPercentage)).list
-      playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
+    val playerStats = Await.result(db.run(hitterStatsQuery(id, year).map(p => (p.date, p.sluggingPercentage, p.LHsluggingPercentage, p.RHsluggingPercentage)).result), Inf).toList
+    playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
   }
 
   def onBase(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterStatsQuery(id, year).map(p => (p.date, p.onBasePercentage, p.LHonBasePercentage, p.RHonBasePercentage)).list
+      val playerStats = Await.result(db.run(hitterStatsQuery(id, year).map(p => (p.date, p.onBasePercentage, p.LHonBasePercentage, p.RHonBasePercentage)).result), Inf).toList
       playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
   }
 
   def sluggingMoving(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterMovingStatsQuery(id, year).map(p => (p.date, p.sluggingPercentageMov, p.LHsluggingPercentageMov, p.RHsluggingPercentageMov)).list
+      val playerStats = Await.result(db.run(hitterMovingStatsQuery(id, year).map(p => (p.date, p.sluggingPercentageMov, p.LHsluggingPercentageMov, p.RHsluggingPercentageMov)).result), Inf).toList
       playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
   }
 
   def onBaseMoving(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterMovingStatsQuery(id, year).map(p => (p.date, p.onBasePercentageMov, p.LHonBasePercentageMov, p.RHonBasePercentageMov)).list
+      val playerStats = Await.result(db.run(hitterMovingStatsQuery(id, year).map(p => (p.date, p.onBasePercentageMov, p.LHonBasePercentageMov, p.RHonBasePercentageMov)).result), Inf).toList
       playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
   }
 
   def sluggingVolatility(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterVolatilityStatsQuery(id, year).sortBy({ x => (x.date, x.pitcherIndex) }).map(p => (p.date, p.sluggingVolatility, p.LHsluggingVolatility, p.RHsluggingVolatility)).list
+      val playerStats = Await.result(db.run(hitterVolatilityStatsQuery(id, year).sortBy({ x => (x.date, x.pitcherIndex) }).map(p => (p.date, p.sluggingVolatility, p.LHsluggingVolatility, p.RHsluggingVolatility)).result), Inf).toList
       playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
   }
 
   def onBaseVolatility(id: String, year: String): List[BattingAverageObservation] = {
-    db.withSession { implicit session =>
-      val playerStats = hitterVolatilityStatsQuery(id, year).sortBy({ x => (x.date, x.pitcherIndex) }).map(p => (p.date, p.onBaseVolatility, p.LHonBaseVolatility, p.RHonBaseVolatility)).list
+      val playerStats = Await.result(db.run(hitterVolatilityStatsQuery(id, year).sortBy({ x => (x.date, x.pitcherIndex) }).map(p => (p.date, p.onBaseVolatility, p.LHonBaseVolatility, p.RHonBaseVolatility)).result), Inf).toList
       playerStats.map({ x => BattingAverageObservation(x._1, displayDouble(x._2), displayDouble(x._3), displayDouble(x._4)) })
-    }
   }
 
   def pitcherStyle(player: Player, game: Game): String = {
-    db.withSession { implicit session =>
-      val styleResults = pitcherStats.filter({ x => x.id === player.id && x.date === game.date }).map(_.style).list
+      val styleResults = Await.result(db.run(pitcherStats.filter({ x => x.id === player.id && x.date === game.date }).map(_.style).result), Inf).toList
       if (!styleResults.isEmpty) styleResults.head
       else ""
-    }
   }
 
   def batterStyle(player: Player, game: Game, pitcher: Player): String = {
-    db.withSession { implicit session =>
-      val styleResults = hitterMovingStats.filter({ x => x.id === player.id && x.date === game.date }).map({ x =>
-        if (pitcher.throwsWith == "R") x.RHstyle else x.LHstyle
-      }).list
-      if (!styleResults.isEmpty) styleResults.head
-      else ""
-    }
+    val styleResults = Await.result(db.run(hitterMovingStats.filter({ x => x.id === player.id && x.date === game.date }).result), Inf).map({ x =>
+      if (pitcher.throwsWith == "R") x.RHstyle else x.LHstyle
+    }).toList
+    if (!styleResults.isEmpty) styleResults.head
+    else ""
   }
 
   def batterStyleCounts(id: String, year: String): List[(String, Double)] = {
-    db.withSession { implicit session =>
-      if (year == "All") {
-        val q = Q[String, (Double, Double, Double, Double)] + """
-              select
-                sum(RHstrikeOut + LHstrikeOut) as souts,
-                sum(RHflyBall + LHflyBall) as fly,
-                sum(RHgroundBall + LHgroundBall) as ground,
-                sum(RHbaseOnBalls + LHbaseOnBalls + RHhitByPitch + LHhitByPitch) as baseOnBalls
-              from
-              	hitterRawLHstats a, hitterRawRHstats b
-              where
-              	a.id = ? and a.id = b.id and a.gameId = b.gameId
-            """
-        val result = q(id).first
-        List(("Strikeouts", result._1), ("Flyball", result._2), ("Groundball", result._3), ("Base On Balls", result._4))
-      } else {
-        val q = Q[(String, String), (Double, Double, Double, Double)] + """
-              select
-                sum(RHstrikeOut + LHstrikeOut) as souts,
-                sum(RHflyBall + LHflyBall) as fly,
-                sum(RHgroundBall + LHgroundBall) as ground,
-                sum(RHbaseOnBalls + LHbaseOnBalls + RHhitByPitch + LHhitByPitch) as baseOnBalls
-              from
-              	hitterRawLHstats a, hitterRawRHstats b
-              where
-              	a.id = ? and a.id = b.id and a.gameId = b.gameId and instr(a.date, ?) > 0
-              """
-        val result = q(id, year).first
-        List(("Strikeouts", result._1), ("Flyball", result._2), ("Groundball", result._3), ("Base On Balls", result._4))
-      }
+    if (year == "All") {
+      val result = Await.result(db.run(sql"""
+            select
+              sum(RHstrikeOut + LHstrikeOut) as souts,
+              sum(RHflyBall + LHflyBall) as fly,
+              sum(RHgroundBall + LHgroundBall) as ground,
+              sum(RHbaseOnBalls + LHbaseOnBalls + RHhitByPitch + LHhitByPitch) as baseOnBalls
+            from
+              hitterRawLHstats a, hitterRawRHstats b
+            where
+              a.id = $id and a.id = b.id and a.gameId = b.gameId
+          """.as[(Double, Double, Double, Double)]), Inf).head
+      List(("Strikeouts", result._1), ("Flyball", result._2), ("Groundball", result._3), ("Base On Balls", result._4))
+    } else {
+      val result = Await.result(db.run(sql"""
+            select
+              sum(RHstrikeOut + LHstrikeOut) as souts,
+              sum(RHflyBall + LHflyBall) as fly,
+              sum(RHgroundBall + LHgroundBall) as ground,
+              sum(RHbaseOnBalls + LHbaseOnBalls + RHhitByPitch + LHhitByPitch) as baseOnBalls
+            from
+              hitterRawLHstats a, hitterRawRHstats b
+            where
+              a.id = $id and a.id = b.id and a.gameId = b.gameId and instr(a.date, $year) > 0
+                                            |            """.as[(Double, Double, Double, Double)]), Inf).head
+      List(("Strikeouts", result._1), ("Flyball", result._2), ("Groundball", result._3), ("Base On Balls", result._4))
     }
   }
 
   def outs(id: String, year: String): List[(DateTime, Double, Double, Double)] = {
-    db.withSession { implicit session =>
-      pitcherDailyQuery(id, year).map(p => (p.date, p.strikeOuts, p.flyOuts, p.groundOuts)).list.map({ x => (x._1, x._2.toDouble.max(0.001), x._3.toDouble.max(0.001), x._4.toDouble.max(0.001)) })
-    }
+    Await.result(db.run(pitcherDailyQuery(id, year).map(p => (p.date, p.strikeOuts, p.flyOuts, p.groundOuts)).result), Inf).toList.map({ x => (x._1, x._2.toDouble.max(0.001), x._3.toDouble.max(0.001), x._4.toDouble.max(0.001)) })
   }
 
   def outsTypeCount(id: String, year: String): List[(String, Double)] = {
-    db.withSession { implicit session =>
-      if (year == "All") {
-        val q = Q[String, (Double, Double, Double)] + """
-              select sum(strikeOuts) as souts, sum(flyOuts) as fouts, sum(groundOuts) as gouts
-              from
-                pitcherDaily
-              where
-                id = ?
-            """
-        val result = q(id).first
-        List(("Strikeouts", result._1), ("Flyouts", result._2), ("Groundouts", result._3))
-      } else {
-        val q = Q[(String, String), (Double, Double, Double)] + """
-              select sum(strikeOuts) as souts, sum(flyOuts) as fouts, sum(groundOuts) as gouts
-              from
-                pitcherDaily
-              where
-                id = ? and instr(date, ?) > 0
-              """
-        val result = q(id, year).first
-        List(("Strikeouts", result._1), ("Flyouts", result._2), ("Groundouts", result._3))
-      }
+    if (year == "All") {
+      val result = Await.result(db.run(sql"""
+            select sum(strikeOuts) as souts, sum(flyOuts) as fouts, sum(groundOuts) as gouts
+            from
+              pitcherDaily
+            where
+              id = $id
+          """.as[(Double, Double, Double)]), Inf).head
+      List(("Strikeouts", result._1), ("Flyouts", result._2), ("Groundouts", result._3))
+    } else {
+      val result = Await.result(db.run(sql"""
+            select sum(strikeOuts) as souts, sum(flyOuts) as fouts, sum(groundOuts) as gouts
+            from
+              pitcherDaily
+            where
+              id = $id and instr(date, $year) > 0
+            """.as[(Double, Double, Double)]), Inf).head
+      List(("Strikeouts", result._1), ("Flyouts", result._2), ("Groundouts", result._3))
     }
   }
 
   def strikeRatio(id: String, year: String): List[(DateTime, Double)] = {
-    db.withSession { implicit session =>
-      pitcherDailyQuery(id, year).map(p => (p.date, p.pitches, p.balls)).list.map({ x => (x._1, (x._2 - x._3).toDouble / x._2.toDouble) })
-    }
+    Await.result(db.run(pitcherDailyQuery(id, year).map(p => (p.date, p.pitches, p.balls)).result), Inf).toList.map({ x => (x._1, (x._2 - x._3).toDouble / x._2.toDouble) })
   }
 
   def pitcherFantasy(id: String, year: String, gameName: String): List[(DateTime, Double)] = {
-    db.withSession { implicit session =>
-      val playerStats = {
-        gameName match {
-          case "FanDuel"    => pitcherFantasyQuery(id, year).map(p => (p.date, p.fanDuel)).list
-          case "DraftKings" => pitcherFantasyQuery(id, year).map(p => (p.date, p.draftKings)).list
-          case "Draftster"  => pitcherFantasyQuery(id, year).map(p => (p.date, p.draftster)).list
-        }
+    val playerStats = {
+      gameName match {
+        case "FanDuel"    => Await.result(db.run(pitcherFantasyQuery(id, year).map(p => (p.date, p.fanDuel)).result), Inf).toList
+        case "DraftKings" => Await.result(db.run(pitcherFantasyQuery(id, year).map(p => (p.date, p.draftKings)).result), Inf).toList
+        case "Draftster"  => Await.result(db.run(pitcherFantasyQuery(id, year).map(p => (p.date, p.draftster)).result), Inf).toList
       }
-      playerStats.map({ x => (x._1, displayDouble(x._2)) })
     }
+    playerStats.map({ x => (x._1, displayDouble(x._2)) })
   }
 
   def pitcherFantasyMoving(id: String, year: String, gameName: String): List[(DateTime, Double)] = {
-    db.withSession { implicit session =>
-      val playerStats = {
-        gameName match {
-          case "FanDuel"    => pitcherFantasyMovingQuery(id, year).map(p => (p.date, p.fanDuelMov)).list
-          case "DraftKings" => pitcherFantasyMovingQuery(id, year).map(p => (p.date, p.draftKingsMov)).list
-          case "Draftster"  => pitcherFantasyMovingQuery(id, year).map(p => (p.date, p.draftsterMov)).list
-        }
+    val playerStats = {
+      gameName match {
+        case "FanDuel"    => Await.result(db.run(pitcherFantasyMovingQuery(id, year).map(p => (p.date, p.fanDuelMov)).result), Inf).toList
+        case "DraftKings" => Await.result(db.run(pitcherFantasyMovingQuery(id, year).map(p => (p.date, p.draftKingsMov)).result), Inf).toList
+        case "Draftster"  => Await.result(db.run(pitcherFantasyMovingQuery(id, year).map(p => (p.date, p.draftsterMov)).result), Inf).toList
       }
-      playerStats.map({ x => (x._1, displayDouble(x._2)) })
     }
+    playerStats.map({ x => (x._1, displayDouble(x._2)) })
   }
 
-  def teamFantasy(team: String, year: DateTime): List[(DateTime, Double, Double)] = {
+  def teamFantasy(team: String, year: String): List[(DateTime, Double, Double)] = {
     import scala.collection.mutable.Queue
-    import RealityballRecords._
 
     def withMovingAverage(list: List[(Timestamp, Double)]): List[(DateTime, Double, Double)] = {
       var running = Queue.empty[Double]
@@ -612,33 +525,31 @@ class RealityballData {
       })
     }
 
-    db.withSession { implicit session =>
-      if (year == "All") {
-        val q = Q[(String, String), (Timestamp, Double)] + """
-              select date, sum(fanDuel) from
-              (select * from hitterFantasyStats where side = 0 and gameId in (select id from games where visitingTeam = ?)
-              union
-              select * from hitterFantasyStats where side = 1 and gameId in (select id from games where homeTeam = ?)) history
-              group by date order by date
-            """
-        withMovingAverage(q(team, team).list)
-      } else {
-        val q = Q[(String, Int, String, Int), (Timestamp, Double)] + """
-              select date, sum(fanDuel) from
-              (select * from hitterFantasyStats where side = 0 and gameId in (select id from games where visitingTeam = ? and year(date) = ?)
-              union
-              select * from hitterFantasyStats where side = 1 and gameId in (select id from games where homeTeam = ? and year(date) = ?)) history
-              group by date order by date
-            """
-        withMovingAverage(q(team, year.getYear, team, year.getYear).list)
-      }
+    if (year == "All") {
+      var results = Await.result(db.run(sql"""
+                select date, sum(fanDuel) from
+                (select * from hitterFantasyStats where side = 0 and gameId in (select id from games where visitingTeam = $team)
+                union
+                select * from hitterFantasyStats where side = 1 and gameId in (select id from games where homeTeam = $team)) history
+                group by date order by date
+        """.as[(Timestamp, Double)]), Inf).toList
+      withMovingAverage(results)
+    } else {
+      var dateYear = YearFormatter.parseDateTime(year).getYear
+      var results = Await.result(db.run(sql"""
+                select date, sum(fanDuel) from
+                (select * from hitterFantasyStats where side = 0 and gameId in (select id from games where visitingTeam = $team and year(date) = $dateYear)
+                union
+                select * from hitterFantasyStats where side = 1 and gameId in (select id from games where homeTeam = $team and year(date) = $dateYear)) history
+                group by date order by date
+        """.as[(Timestamp, Double)]), Inf).toList
+      withMovingAverage(results)
     }
   }
 
   def ballparkFantasy(team: String, date: String): Double = {
 
-    db.withSession { implicit session =>
-        val q = Q[(String, String), Double] + """
+    Await.result(db.run(sql"""
               select sum(fanDuel) / sum(pa) from
                (select fanDuel, pa from hitterFantasyStats a, hitterDailyStats b
                where
@@ -649,10 +560,7 @@ class RealityballData {
                  a.date < ?
                order by
                  a.date desc
-               limit 600) a
-                            """
-      q(team + "%", date).list.head
-    }
+               limit 600) a """.as[Double]), Inf).head
   }
 
   def ballparkBAbyDate(team: String, date: String): BattingAverageSummaries = {
@@ -681,28 +589,26 @@ class RealityballData {
       })
     }
 
-    db.withSession { implicit session =>
-      val records = ballparkDailiesTable.filter({ x => (x.id < (team + date + "0")) && (x.id like (team + "%")) }).sortBy(_.id).list.take(MovingAverageWindow * 4)
-      val baProcessed = records.map { x => BattingAverageObservation(x.date, safeRatio((x.LHhits + x.RHhits), (x.LHatBat + x.RHatBat)), safeRatio(x.LHhits, x.LHatBat), safeRatio(x.RHhits, x.RHatBat)) }
-      val ba = replaceWithMovingAverage(baProcessed).reverse.head
-      val obpProcessed = records.map { x =>
-        BattingAverageObservation(x.date,
-          safeRatio(x.LHhits + x.LHbaseOnBalls + x.LHhitByPitch + x.RHhits + x.RHbaseOnBalls + x.RHhitByPitch,
-            x.RHatBat + x.RHbaseOnBalls + x.RHhitByPitch + x.RHsacFly + x.LHatBat + x.LHbaseOnBalls + x.LHhitByPitch + x.LHsacFly),
-          safeRatio(x.RHhits + x.RHbaseOnBalls + x.RHhitByPitch, x.RHatBat + x.RHbaseOnBalls + x.RHhitByPitch + x.RHsacFly),
-          safeRatio(x.LHhits + x.LHbaseOnBalls + x.LHhitByPitch, x.LHatBat + x.LHbaseOnBalls + x.LHhitByPitch + x.LHsacFly))
-      }
-      val obp = replaceWithMovingAverage(obpProcessed).reverse.head
-      val slgProcessed = records.map { x =>
-        BattingAverageObservation(x.date,
-          safeRatio(x.LHhits + x.LHbaseOnBalls + x.LHhitByPitch + x.RHhits + x.RHbaseOnBalls + x.RHhitByPitch,
-            x.RHatBat + x.RHbaseOnBalls + x.RHhitByPitch + x.RHsacFly + x.LHatBat + x.LHbaseOnBalls + x.LHhitByPitch + x.LHsacFly),
-          safeRatio(x.RHhits + x.RHbaseOnBalls + x.RHhitByPitch, x.RHatBat + x.RHbaseOnBalls + x.RHhitByPitch + x.RHsacFly),
-          safeRatio(x.LHhits + x.LHbaseOnBalls + x.LHhitByPitch, x.LHatBat + x.LHbaseOnBalls + x.LHhitByPitch + x.LHsacFly))
-      }
-      val slg = replaceWithMovingAverage(slgProcessed).reverse.head
-      BattingAverageSummaries(ba, obp, slg)
-  }
+    val records = Await.result(db.run(ballparkDailiesTable.filter({ x => (x.id < (team + date + "0")) && (x.id like (team + "%")) }).sortBy(_.id).result), Inf).toList.take(MovingAverageWindow * 4)
+    val baProcessed = records.map { x => BattingAverageObservation(x.date, safeRatio((x.LHhits + x.RHhits), (x.LHatBat + x.RHatBat)), safeRatio(x.LHhits, x.LHatBat), safeRatio(x.RHhits, x.RHatBat)) }
+    val ba = replaceWithMovingAverage(baProcessed).reverse.head
+    val obpProcessed = records.map { x =>
+      BattingAverageObservation(x.date,
+        safeRatio(x.LHhits + x.LHbaseOnBalls + x.LHhitByPitch + x.RHhits + x.RHbaseOnBalls + x.RHhitByPitch,
+          x.RHatBat + x.RHbaseOnBalls + x.RHhitByPitch + x.RHsacFly + x.LHatBat + x.LHbaseOnBalls + x.LHhitByPitch + x.LHsacFly),
+        safeRatio(x.RHhits + x.RHbaseOnBalls + x.RHhitByPitch, x.RHatBat + x.RHbaseOnBalls + x.RHhitByPitch + x.RHsacFly),
+        safeRatio(x.LHhits + x.LHbaseOnBalls + x.LHhitByPitch, x.LHatBat + x.LHbaseOnBalls + x.LHhitByPitch + x.LHsacFly))
+    }
+    val obp = replaceWithMovingAverage(obpProcessed).reverse.head
+    val slgProcessed = records.map { x =>
+      BattingAverageObservation(x.date,
+        safeRatio(x.LHhits + x.LHbaseOnBalls + x.LHhitByPitch + x.RHhits + x.RHbaseOnBalls + x.RHhitByPitch,
+          x.RHatBat + x.RHbaseOnBalls + x.RHhitByPitch + x.RHsacFly + x.LHatBat + x.LHbaseOnBalls + x.LHhitByPitch + x.LHsacFly),
+        safeRatio(x.RHhits + x.RHbaseOnBalls + x.RHhitByPitch, x.RHatBat + x.RHbaseOnBalls + x.RHhitByPitch + x.RHsacFly),
+        safeRatio(x.LHhits + x.LHbaseOnBalls + x.LHhitByPitch, x.LHatBat + x.LHbaseOnBalls + x.LHhitByPitch + x.LHsacFly))
+    }
+    val slg = replaceWithMovingAverage(slgProcessed).reverse.head
+    BattingAverageSummaries(ba, obp, slg)
   }
 
   def ballparkBA(team: String, year: String): List[BattingAverageObservation] = {
@@ -731,14 +637,12 @@ class RealityballData {
       })
     }
 
-    db.withSession { implicit session =>
-      if (year == "All") replaceWithMovingAverage(ballparkDailiesTable.filter(_.id like team + "%").sortBy(_.id).list.map({ x =>
-        BattingAverageObservation(x.date, safeRatio((x.LHhits + x.RHhits), (x.LHatBat + x.RHatBat)), safeRatio(x.LHhits, x.LHatBat), safeRatio(x.RHhits, x.RHatBat))
-      }))
-      else replaceWithMovingAverage(ballparkDailiesTable.filter({ row => (row.id like (team + "%")) && (row.id like (team + year + "%")) }).list.map({ x =>
-        BattingAverageObservation(x.date, safeRatio((x.LHhits + x.RHhits), (x.LHatBat + x.RHatBat)), safeRatio(x.LHhits, x.LHatBat), safeRatio(x.RHhits, x.RHatBat))
-      }))
-    }
+    if (year == "All") replaceWithMovingAverage(Await.result(db.run(ballparkDailiesTable.filter(_.id like team + "%").sortBy(_.id).result), Inf).map({ x =>
+      BattingAverageObservation(x.date, safeRatio((x.LHhits + x.RHhits), (x.LHatBat + x.RHatBat)), safeRatio(x.LHhits, x.LHatBat), safeRatio(x.RHhits, x.RHatBat))
+    }).toList)
+    else replaceWithMovingAverage(Await.result(db.run(ballparkDailiesTable.filter({ row => (row.id like (team + "%")) && (row.id like (team + year + "%")) }).result), Inf).map({ x =>
+      BattingAverageObservation(x.date, safeRatio((x.LHhits + x.RHhits), (x.LHatBat + x.RHatBat)), safeRatio(x.LHhits, x.LHatBat), safeRatio(x.RHhits, x.RHatBat))
+    }).toList)
   }
 
   def ballparkAttendance(team: String, year: String): List[(DateTime, Double)] = {
@@ -746,58 +650,48 @@ class RealityballData {
     def dateFromId(id: String): DateTime = {
       formatter.parseDateTime(id.substring(3, 7) + "/" + id.substring(7, 9) + "/" + id.substring(9, 11))
     }
-    db.withSession { implicit session =>
-      if (year == "All") gameScoringTable.filter(_.id like team + "%").sortBy(_.id).list.map({ x => (dateFromId(x.id), x.attendance.toDouble) })
-      else gameScoringTable.filter({ row => (row.id like (team + "%")) && (row.id like (team + year + "%")) }).list.map({ x => (dateFromId(x.id), x.attendance.toDouble) })
-    }
+    if (year == "All") Await.result(db.run(gameScoringTable.filter(_.id like team + "%").sortBy(_.id).result), Inf).toList.map({ x => (dateFromId(x.id), x.attendance.toDouble) })
+    else Await.result(db.run(gameScoringTable.filter({ row => (row.id like (team + "%")) && (row.id like (team + year + "%")) }).result), Inf).toList.map({ x => (dateFromId(x.id), x.attendance.toDouble) })
   }
 
   def ballparkConditions(team: String, year: String): List[(DateTime, Double, Double)] = {
-    db.withSession { implicit session =>
-      val teamMeta = teamsTable.filter({ x => x.year === "2014" && x.mnemonic === team }).list
-      if (teamMeta.isEmpty) List.empty[(DateTime, Double, Double)]
-      else {
-        val weather = new Weather(teamMeta.head.zipCode)
-        val formatter = DateTimeFormat.forPattern("E h:mm a")
-        weather.hourlyForecasts.map({ x =>
-          {
-            val date = new DateTime(x.FCTTIME.epoch.toLong * 1000)
-            (date, x.temp.english.toDouble, x.pop.toDouble)
-          }
-        })
-      }
+    val teamMeta = Await.result(db.run(teamsTable.filter({ x => x.year === "2014" && x.mnemonic === team }).result), Inf).toList
+    if (teamMeta.isEmpty) List.empty[(DateTime, Double, Double)]
+    else {
+      val weather = new Weather(teamMeta.head.zipCode)
+      val formatter = DateTimeFormat.forPattern("E h:mm a")
+      weather.hourlyForecasts.map({ x =>
+        {
+          val date = new DateTime(x.FCTTIME.epoch.toLong * 1000)
+          (date, x.temp.english.toDouble, x.pop.toDouble)
+        }
+      })
     }
   }
 
   def odds(game: Game): GameOdds = {
-    db.withSession { implicit session =>
-      gameOddsTable.filter({ x => x.id === game.id }).list.head
-    }
+    Await.result(db.run(gameOddsTable.filter({ x => x.id === game.id }).result), Inf).head
   }
 
   def schedule(team: String, year: String): List[FullGameInfo] = {
-    db.withSession { implicit session =>
-      val lookingOut = (new DateTime).plusMonths(3)
-      val schedule = {
-        if (year == "All") (gamedayScheduleTable join gameOddsTable on (_.id === _.id)).filter({ x => ((x._1.homeTeam === team) || (x._1.visitingTeam === team)) && x._1.date < lookingOut }).sortBy(_._1.date)
-        else (gamedayScheduleTable join gameOddsTable on (_.id === _.id)).filter({ x => ((x._1.homeTeam === team) || (x._1.visitingTeam === team)) && x._1.date < lookingOut }).sortBy(_._1.date)
-      }
-      schedule.list.reverse.map { case (x, y) => FullGameInfo(x, y) }
+    val lookingOut = (new DateTime).plusMonths(3)
+    val schedule = {
+      if (year == "All") (gamedayScheduleTable join gameOddsTable on (_.id === _.id)).filter({ x => ((x._1.homeTeam === team) || (x._1.visitingTeam === team)) && x._1.date < lookingOut }).sortBy(_._1.date)
+      else (gamedayScheduleTable join gameOddsTable on (_.id === _.id)).filter({ x => ((x._1.homeTeam === team) || (x._1.visitingTeam === team)) && x._1.date < lookingOut }).sortBy(_._1.date)
     }
+    Await.result(db.run(schedule.result), Inf).reverse.map { case (x, y) => FullGameInfo(x, y) }.toList
   }
 
   def injuries(team: String): List[InjuryReport] = {
-    db.withSession { implicit session =>
-      injuryReportTable.map(_.reportTime).max.run match {
-        case x: Some[DateTime] =>
-          val reportTime = x.get
-          val injuryReports = for {
-            injuries <- injuryReportTable if injuries.reportTime === reportTime
-            ids <- idMappingTable if injuries.mlbId === ids.mlbId
-          } yield (ids.mlbName, injuries.reportTime, injuries.injuryReportDate, injuries.status, injuries.dueBack, injuries.injury)
-          injuryReports.list.map({ x => InjuryReport(x._1, x._2, x._3, x._4, x._5, x._6) })
-        case None => List()
-      }
+    Await.result(db.run(injuryReportTable.map(_.reportTime).max.result), Inf).head match {
+      case x: DateTime =>
+        val reportTime = x
+        val injuryReports = for {
+          injuries <- injuryReportTable if injuries.reportTime === reportTime
+          ids <- idMappingTable if injuries.mlbId === ids.mlbId
+        } yield (ids.mlbName, injuries.reportTime, injuries.injuryReportDate, injuries.status, injuries.dueBack, injuries.injury)
+        Await.result(db.run(injuryReports.result), Inf).map({ x => InjuryReport(x._1, x._2, x._3, x._4, x._5, x._6) }).toList
+      //case None => List()
     }
   }
 
@@ -815,31 +709,24 @@ where
 order by date, pitcherIndex
 limit 100;
 */
-    db.withSession { implicit session =>
-      val query = for {
-        dailyStats <- hitterStats if (dailyStats.date <= date && dailyStats.id === player.id)
-        hitterFantasy <- hitterFantasyTable if (hitterFantasy.gameId === dailyStats.gameId && hitterFantasy.id === dailyStats.id && hitterFantasy.pitcherIndex === dailyStats.pitcherIndex)
-        players <- playersTable if (players.id === hitterFantasy.pitcherId && players.year === "2014" && players.throwsWith === pitcherHand)
-      } yield (dailyStats.date, dailyStats.id, players.throwsWith, dailyStats.plateAppearances, hitterFantasy.fanDuel, hitterFantasy.draftKings, hitterFantasy.draftster)
-      val rows = query.sortBy({ x => x._1.desc }).take(200).list
-      val lookback = if (pitcherHand == "R") 40 else 20
-      val sums = rows.foldLeft((0.0, 0))({ case (x, y) => if (x._2 >= lookback) x else (x._1 + y._5.getOrElse(0.0), x._2 + y._4) })
-      if (sums._2 > 0) sums._1 / sums._2.toDouble else 0.0
-    }
+    val query = for {
+      dailyStats <- hitterStats if (dailyStats.date <= date && dailyStats.id === player.id)
+      hitterFantasy <- hitterFantasyTable if (hitterFantasy.gameId === dailyStats.gameId && hitterFantasy.id === dailyStats.id && hitterFantasy.pitcherIndex === dailyStats.pitcherIndex)
+      players <- playersTable if (players.id === hitterFantasy.pitcherId && players.year === "2014" && players.throwsWith === pitcherHand)
+    } yield (dailyStats.date, dailyStats.id, players.throwsWith, dailyStats.plateAppearances, hitterFantasy.fanDuel, hitterFantasy.draftKings, hitterFantasy.draftster)
+    val rows = Await.result(db.run(query.sortBy({ x => x._1.desc }).take(200).result), Inf).toList
+    val lookback = if (pitcherHand == "R") 40 else 20
+    val sums = rows.foldLeft((0.0, 0))({ case (x, y) => if (x._2 >= lookback) x else (x._1 + y._5.getOrElse(0.0), x._2 + y._4) })
+    if (sums._2 > 0) sums._1 / sums._2.toDouble else 0.0
 
   }
 
   def availablePredictionDates: List[String] = {
-    db.withSession { implicit session =>
-      val q = Q[(String)] + "select distinct(substr(gameId, 4, 8)) as date from fantasyPrediction order by date"
-      q.list
-    }
+    Await.result(db.run(sql"""select distinct(substr(gameId, 4, 8)) as date from fantasyPrediction order by date""".as[String]), Inf).toList
   }
 
   def predictions(date: DateTime, position: String, platform: String): (List[(DateTime, Double, Double)], List[String]) = {
-    db.withSession { implicit session =>
-      (List(), List())
-    }
+    (List(), List())
   }
 
 }

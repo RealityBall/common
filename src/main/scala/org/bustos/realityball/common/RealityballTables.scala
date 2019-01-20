@@ -1,13 +1,12 @@
 package org.bustos.realityball.common
 
-import java.sql.{Date, Timestamp}
+import java.sql.Timestamp
 
 import org.joda.time.DateTime
-import org.joda.time.format.{ISODateTimeFormat, DateTimeFormatter}
-
-import scala.slick.driver.MySQLDriver.simple._
-import scala.slick.lifted.{ ProvenShape, ForeignKeyQuery }
+import org.joda.time.format.{DateTimeFormatter, ISODateTimeFormat}
 import spray.json._
+import slick.jdbc.MySQLProfile.api._
+import slick.lifted.{Tag, ProvenShape, SimpleFunction, TableQuery}
 
 object RealityballRecords {
   import scala.collection.mutable.Queue
@@ -36,7 +35,7 @@ object RealityballRecords {
                             var temp: Int, var winddir: String, var windspeed: Int, var fieldcond: String, var precip: String, var sky: String)
   case class GamedaySchedule(var id: String, homeTeam: String, visitingTeam: String, site: String, date: DateTime, number: Int,
                              result: String, winningPitcher: String, losingPitcher: String, record: String, var startingHomePitcher: String, var startingVisitingPitcher: String,
-                             startTime: DateTime, temp: Int, winddir: String, windspeed: Int, precip: String, sky: String)
+                             temp: Int, winddir: String, windspeed: Int, precip: String, sky: String)
   case class GameScoring(id: String, var umphome: String, var ump1b: String, var ump2b: String, var ump3b: String, var howscored: String,
                          var timeofgame: Int, var attendance: Int, var wp: String, var lp: String, var save: String)
   case class GameOdds(var id: String, var visitorML: Int, var homeML: Int, var overUnder: Double, var overUnderML: Int)
@@ -110,7 +109,7 @@ object RealityballRecords {
     )
 }
 
-import RealityballRecords._
+import org.bustos.realityball.common.RealityballRecords._
 object RealityballJsonProtocol extends DefaultJsonProtocol {
   import RealityballRecords._
 
@@ -135,7 +134,7 @@ object RealityballJsonProtocol extends DefaultJsonProtocol {
   implicit val playerDataFormat = jsonFormat2(PlayerData)
   implicit val pitcherDataFormat = jsonFormat2(PitcherData)
   implicit val teamFormat = jsonFormat13(Team)
-  implicit val gamedayScheduleFormat = jsonFormat18(GamedaySchedule)
+  implicit val gamedayScheduleFormat = jsonFormat17(GamedaySchedule)
   implicit val gameOddsFormat = jsonFormat5(GameOdds)
   implicit val fullGameInfoFormat = jsonFormat2(FullGameInfo)
   implicit val injuryReportFormat = jsonFormat6(InjuryReport)
@@ -206,14 +205,13 @@ class GamedayScheduleTable(tag: Tag) extends Table[GamedaySchedule](tag, "gameda
   def record = column[String]("record")
   def startingHomePitcher = column[String]("startingHomePitcher")
   def startingVisitingPitcher = column[String]("startingVisitingPitcher")
-  def startTime = column[DateTime]("startTime")
   def temp = column[Int]("temp")
   def winddir = column[String]("winddir")
   def windspeed = column[Int]("windspeed")
   def precip = column[String]("precip")
   def sky = column[String]("sky")
 
-  def * = (id, homeTeam, visitingTeam, site, date, number, result, winningPitcher, losingPitcher, record, startingHomePitcher, startingVisitingPitcher, startTime, temp, winddir, windspeed, precip, sky) <> (GamedaySchedule.tupled, GamedaySchedule.unapply)
+  def * = (id, homeTeam, visitingTeam, site, date, number, result, winningPitcher, losingPitcher, record, startingHomePitcher, startingVisitingPitcher, temp, winddir, windspeed, precip, sky) <> (GamedaySchedule.tupled, GamedaySchedule.unapply)
 }
 
 class FantasyPredictionTable(tag: Tag) extends Table[FantasyPrediction](tag, "fantasyPrediction") {

@@ -1,7 +1,7 @@
 lazy val commonSettings = Seq(
    organization := "org.bustos",
    version := "0.1.0",
-   scalaVersion := "2.11.4"
+   scalaVersion := "2.11.7"
 )
 
 lazy val common = (project in file("."))
@@ -9,18 +9,18 @@ lazy val common = (project in file("."))
    .settings(commonSettings: _*)
    .settings(libraryDependencies ++= projectLibraries)
 
-
 val slf4jV = "1.7.6"
-val sprayV = "1.3.1"
+val akka_http_version = "10.0.11"
 
 val projectLibraries = Seq(
-  "com.typesafe.akka"       %% "akka-actor"           % "2.3.6",
-  "com.typesafe.slick"      %% "slick"                % "2.1.0",
+  "com.typesafe.slick"      %% "slick"                % "3.2.1",
+  "com.typesafe.slick"      %% "slick-hikaricp"       % "3.2.1",
+  "com.typesafe.akka"       %% "akka-actor"           % "2.4.20",
   "org.seleniumhq.selenium" %  "selenium-java"        % "2.35.0",
-  "org.scalatest"           %% "scalatest"            % "2.1.6",
-  "io.spray"                %% "spray-can"            % sprayV,
-  "io.spray"                %% "spray-routing"        % sprayV,
-  "io.spray"                %% "spray-json"           % sprayV,
+  "org.scalatest"           %% "scalatest"            % "3.0.1",
+  "com.typesafe.akka"       %% "akka-http-core"       % akka_http_version,
+  "com.typesafe.akka"       %% "akka-http"            % akka_http_version,
+  "com.typesafe.akka"       %% "akka-http-spray-json" % akka_http_version,
   "mysql"                   %  "mysql-connector-java" % "latest.release",
   "log4j"                   %  "log4j"                % "1.2.14",
   "org.slf4j"               %  "slf4j-api"            % slf4jV,

@@ -1,18 +1,18 @@
 package org.bustos.realityball.common
 
 import akka.actor.ActorSystem
-import akka.io.IO
-import akka.pattern.ask
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest}
+import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import org.bustos.realityball.common.RealityballConfig._
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
-import spray.can.Http
-import spray.http._
-import spray.httpx.ResponseTransformation._
 import spray.json._
 
-import scala.concurrent._
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object WeatherLoadRecords {
@@ -36,7 +36,7 @@ object WeatherLoadRecords {
   case class HistoricalObservations(response: Response, history: HistoricalObservation)
 }
 
-object WeatherJsonProtocol extends DefaultJsonProtocol {
+object WeatherJsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   import WeatherLoadRecords._
 
   implicit val fcTimeFormat = jsonFormat2(FctTime)
@@ -62,17 +62,22 @@ class Weather(postalCode: String) {
   import RealityballRecords._
   import WeatherJsonProtocol._
   import WeatherLoadRecords._
+  import akka.http.scaladsl.common.{EntityStreamingSupport, JsonEntityStreamingSupport}
+
+  implicit val jsonStreamingSupport: JsonEntityStreamingSupport =
+    EntityStreamingSupport.json()
 
   val logger = LoggerFactory.getLogger(getClass)
 
   implicit val system = ActorSystem()
   implicit val timeout: Timeout = Timeout(5 minutes)
+  implicit val materializer = ActorMaterializer()
 
   val hourlyForecasts: List[HourlyForecastDetail] = {
     try {
       val request = HttpRequest(HttpMethods.GET, WUNDERGROUND_APIURL + WUNDERGROUND_APIKEY + "/hourly/q/" + postalCode + ".json")
-      val response = Await.result((IO(Http) ? request).mapTo[HttpResponse], 30 seconds) ~> unmarshal[String]
-      response.parseJson.convertTo[HourlyForecast].hourly_forecast.toList
+      val response = Await.result(Http().singleRequest(request), 30 seconds)
+      Await.result(Unmarshal(response.entity).to[HourlyForecast], 30 seconds).hourly_forecast.toList
     } catch {
       case e: Exception => List.empty[HourlyForecastDetail]
     }
@@ -89,8 +94,8 @@ class Weather(postalCode: String) {
 
   def historicalConditions(time: String): GameConditions = {
     val request = HttpRequest(HttpMethods.GET, WUNDERGROUND_APIURL + WUNDERGROUND_APIKEY + "/history_" + time.split(' ')(0) + "/q/" + postalCode + ".json")
-    val response = Await.result((IO(Http) ? request).mapTo[HttpResponse], 30 seconds) ~> unmarshal[String]
-    response.parseJson.convertTo[HistoricalObservations].history.observations.toList.reverse.find { x => x.date.year + x.date.mon + x.date.mday + " " + x.date.hour + ":" + x.date.min < time } match {
+    val response = Await.result(Http().singleRequest(request), 30 seconds)
+    Await.result(Unmarshal(response.entity).to[HistoricalObservations], 30 seconds).history.observations.toList.reverse.find { x => x.date.year + x.date.mon + x.date.mday + " " + x.date.hour + ":" + x.date.min < time } match {
       case Some(x) => GameConditions("", new DateTime, "", false, x.tempi.toDouble.toInt, "", x.wspdi.toDouble.toInt, "", "", x.conds)
       case None    => null
     }

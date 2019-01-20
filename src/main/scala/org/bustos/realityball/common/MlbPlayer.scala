@@ -1,21 +1,13 @@
 package org.bustos.realityball.common
 
 import java.io._
-import org.joda.time._
-import org.joda.time.format._
-import org.scalatest._
-import selenium._
-import org.scalatest.time.{ Span, Seconds }
-import org.openqa.selenium.support.ui.{ WebDriverWait, ExpectedCondition }
-import org.openqa.selenium._
-import org.openqa.selenium.By._
-import remote._
-import htmlunit._
-import scala.util.matching.Regex
-import scala.collection.JavaConversions._
+
+import org.bustos.realityball.common.RealityballConfig._
+import org.bustos.realityball.common.RealityballRecords._
+import org.openqa.selenium.remote._
+import org.scalatest.selenium.Chrome
+import org.scalatest.time.{Seconds, Span}
 import org.slf4j.LoggerFactory
-import RealityballRecords._
-import RealityballConfig._
 
 class MlbPlayer(val mlbId: String) extends Chrome {
 
