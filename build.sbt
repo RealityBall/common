@@ -21,7 +21,7 @@ val projectLibraries = Seq(
   "com.typesafe.akka"       %% "akka-http-core"       % akka_http_version,
   "com.typesafe.akka"       %% "akka-http"            % akka_http_version,
   "com.typesafe.akka"       %% "akka-http-spray-json" % akka_http_version,
-  "mysql"                   %  "mysql-connector-java" % "latest.release",
+  "mysql"                   %  "mysql-connector-java" % "5.1.23",
   "log4j"                   %  "log4j"                % "1.2.14",
   "org.slf4j"               %  "slf4j-api"            % slf4jV,
   "org.slf4j"               %  "slf4j-log4j12"        % slf4jV,

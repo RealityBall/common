@@ -1,3 +1,22 @@
+/*
+
+    Copyright (C) 2019 Mauricio Bustos (m@bustos.org)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 package org.bustos.realityball.common
 
 import java.sql.Timestamp
@@ -141,19 +160,19 @@ object RealityballJsonProtocol extends DefaultJsonProtocol {
 }
 
 class TeamsTable(tag: Tag) extends Table[Team](tag, "teams") {
-  def year = column[String]("year")
-  def mnemonic = column[String]("mnemonic")
-  def league = column[String]("league")
-  def city = column[String]("city")
-  def name = column[String]("name")
-  def site = column[String]("site")
-  def zipCode = column[String]("zipCode")
-  def mlbComId = column[String]("mlbComId")
-  def mlbComName = column[String]("mlbComName")
-  def timeZone = column[String]("timeZone")
-  def coversComId = column[String]("coversComId")
-  def coversComName = column[String]("coversComName")
-  def coversComFullName = column[String]("coversComFullName")
+  def year = column[String]("year", O.Length(100))
+  def mnemonic = column[String]("mnemonic", O.Length(100))
+  def league = column[String]("league", O.Length(100))
+  def city = column[String]("city", O.Length(100))
+  def name = column[String]("name", O.Length(100))
+  def site = column[String]("site", O.Length(100))
+  def zipCode = column[String]("zipCode", O.Length(100))
+  def mlbComId = column[String]("mlbComId", O.Length(100))
+  def mlbComName = column[String]("mlbComName", O.Length(100))
+  def timeZone = column[String]("timeZone", O.Length(100))
+  def coversComId = column[String]("coversComId", O.Length(100))
+  def coversComName = column[String]("coversComName", O.Length(100))
+  def coversComFullName = column[String]("coversComFullName", O.Length(100))
 
   def * = (year, mnemonic, league, city, name, site, zipCode, mlbComId, mlbComName, timeZone, coversComId, coversComName, coversComFullName) <> (Team.tupled, Team.unapply)
 }
@@ -161,14 +180,14 @@ class TeamsTable(tag: Tag) extends Table[Team](tag, "teams") {
 class GamesTable(tag: Tag) extends Table[Game](tag, "games") {
   import RealityballRecords.dateTime
 
-  def id = column[String]("id", O.PrimaryKey)
-  def homeTeam = column[String]("homeTeam")
-  def visitingTeam = column[String]("visitingTeam")
-  def site = column[String]("site")
+  def id = column[String]("id", O.PrimaryKey, O.Length(100))
+  def homeTeam = column[String]("homeTeam", O.Length(100))
+  def visitingTeam = column[String]("visitingTeam", O.Length(100))
+  def site = column[String]("site", O.Length(100))
   def date = column[DateTime]("date")
   def number = column[Int]("number")
-  def startingHomePitcher = column[String]("startingHomePitcher")
-  def startingVisitingPitcher = column[String]("startingVisitingPitcher")
+  def startingHomePitcher = column[String]("startingHomePitcher", O.Length(100))
+  def startingVisitingPitcher = column[String]("startingVisitingPitcher", O.Length(100))
 
   def * = (id, homeTeam, visitingTeam, site, date, number, startingHomePitcher, startingVisitingPitcher) <> (Game.tupled, Game.unapply)
 }
@@ -176,16 +195,16 @@ class GamesTable(tag: Tag) extends Table[Game](tag, "games") {
 class GameConditionsTable(tag: Tag) extends Table[GameConditions](tag, "gameConditions") {
   import RealityballRecords.dateTime
 
-  def id = column[String]("id", O.PrimaryKey)
+  def id = column[String]("id", O.PrimaryKey, O.Length(100))
   def startTime = column[DateTime]("startTime")
-  def daynight = column[String]("daynight")
+  def daynight = column[String]("daynight", O.Length(100))
   def usedh = column[Boolean]("usedh")
   def temp = column[Int]("temp")
-  def winddir = column[String]("winddir")
+  def winddir = column[String]("winddir", O.Length(100))
   def windspeed = column[Int]("windspeed")
-  def fieldcond = column[String]("fieldcond")
-  def precip = column[String]("precip")
-  def sky = column[String]("sky")
+  def fieldcond = column[String]("fieldcond", O.Length(100))
+  def precip = column[String]("precip", O.Length(100))
+  def sky = column[String]("sky", O.Length(100))
 
   def * = (id, startTime, daynight, usedh, temp, winddir, windspeed, fieldcond, precip, sky) <> (GameConditions.tupled, GameConditions.unapply)
 }
@@ -193,23 +212,23 @@ class GameConditionsTable(tag: Tag) extends Table[GameConditions](tag, "gameCond
 class GamedayScheduleTable(tag: Tag) extends Table[GamedaySchedule](tag, "gamedaySchedule") {
   import RealityballRecords.dateTime
 
-  def id = column[String]("id", O.PrimaryKey)
-  def homeTeam = column[String]("homeTeam")
-  def visitingTeam = column[String]("visitingTeam")
-  def site = column[String]("site")
+  def id = column[String]("id", O.PrimaryKey, O.Length(100))
+  def homeTeam = column[String]("homeTeam", O.Length(100))
+  def visitingTeam = column[String]("visitingTeam", O.Length(100))
+  def site = column[String]("site", O.Length(100))
   def date = column[DateTime]("date")
   def number = column[Int]("number")
-  def result = column[String]("result")
-  def winningPitcher = column[String]("winningPitcher")
-  def losingPitcher = column[String]("losingPitcher")
-  def record = column[String]("record")
-  def startingHomePitcher = column[String]("startingHomePitcher")
-  def startingVisitingPitcher = column[String]("startingVisitingPitcher")
+  def result = column[String]("result", O.Length(100))
+  def winningPitcher = column[String]("winningPitcher", O.Length(100))
+  def losingPitcher = column[String]("losingPitcher", O.Length(100))
+  def record = column[String]("record", O.Length(100))
+  def startingHomePitcher = column[String]("startingHomePitcher", O.Length(100))
+  def startingVisitingPitcher = column[String]("startingVisitingPitcher", O.Length(100))
   def temp = column[Int]("temp")
-  def winddir = column[String]("winddir")
+  def winddir = column[String]("winddir", O.Length(100))
   def windspeed = column[Int]("windspeed")
-  def precip = column[String]("precip")
-  def sky = column[String]("sky")
+  def precip = column[String]("precip", O.Length(100))
+  def sky = column[String]("sky", O.Length(100))
 
   def * = (id, homeTeam, visitingTeam, site, date, number, result, winningPitcher, losingPitcher, record, startingHomePitcher, startingVisitingPitcher, temp, winddir, windspeed, precip, sky) <> (GamedaySchedule.tupled, GamedaySchedule.unapply)
 }
@@ -217,11 +236,11 @@ class GamedayScheduleTable(tag: Tag) extends Table[GamedaySchedule](tag, "gameda
 class FantasyPredictionTable(tag: Tag) extends Table[FantasyPrediction](tag, "fantasyPrediction") {
   import RealityballRecords.dateTime
 
-  def id = column[String]("id")
+  def id = column[String]("id", O.Length(100))
   def date = column[DateTime]("date")
-  def gameId = column[String]("gameId")
-  def position = column[String]("position")
-  def startingPitcher = column[String]("startingPitcher")
+  def gameId = column[String]("gameId", O.Length(100))
+  def position = column[String]("position", O.Length(100))
+  def startingPitcher = column[String]("startingPitcher", O.Length(100))
   def productionRate = column[Option[Double]]("productionRate")
   def daysSinceProduction = column[Int] ("daysSinceProduction")
   def fanduelActual = column[Option[Double]]("fanduelActual")
@@ -252,7 +271,7 @@ class FantasyPredictionTable(tag: Tag) extends Table[FantasyPrediction](tag, "fa
 }
 
 class GameOddsTable(tag: Tag) extends Table[GameOdds](tag, "gameOdds") {
-  def id = column[String]("id", O.PrimaryKey)
+  def id = column[String]("id", O.PrimaryKey, O.Length(100))
   def visitorML = column[Int]("visitorML")
   def homeML = column[Int]("homeML")
   def overUnder = column[Double]("overUnder")
@@ -264,12 +283,12 @@ class GameOddsTable(tag: Tag) extends Table[GameOdds](tag, "gameOdds") {
 class InjuryReportTable(tag: Tag) extends Table[InjuryReport](tag, "InjuryReport") {
   import RealityballRecords.dateTime
 
-  def mlbId = column[String]("mlbId")
+  def mlbId = column[String]("mlbId", O.Length(100))
   def reportTime = column[DateTime]("reportTime")
   def injuryReportDate = column[DateTime]("injuryReportDate")
-  def status = column[String]("status")
-  def dueBack = column[String]("dueBack")
-  def injury = column[String]("injury")
+  def status = column[String]("status", O.Length(100))
+  def dueBack = column[String]("dueBack", O.Length(100))
+  def injury = column[String]("injury", O.Length(100))
 
   def * = (mlbId, reportTime, injuryReportDate, status, dueBack, injury) <> (InjuryReport.tupled, InjuryReport.unapply)
 }
@@ -277,7 +296,7 @@ class InjuryReportTable(tag: Tag) extends Table[InjuryReport](tag, "InjuryReport
 class BallparkDailiesTable(tag: Tag) extends Table[BallparkDaily](tag, "ballparkDailies") {
   import RealityballRecords.dateTime
 
-  def id = column[String]("id")
+  def id = column[String]("id", O.Length(100))
   def date = column[DateTime]("date")
   def RHhits = column[Int]("RHhits")
   def RHtotalBases = column[Int]("RHtotalBases")
@@ -298,31 +317,31 @@ class BallparkDailiesTable(tag: Tag) extends Table[BallparkDaily](tag, "ballpark
 }
 
 class BallparkTable(tag: Tag) extends Table[Ballpark](tag, "ballpark") {
-  def id = column[String]("id", O.PrimaryKey)
-  def name = column[String]("name")
-  def aka = column[String]("aka")
-  def city = column[String]("city")
-  def state = column[String]("state")
-  def start = column[String]("start")
-  def end = column[String]("end")
-  def league = column[String]("league")
-  def notes = column[String]("notes")
+  def id = column[String]("id", O.PrimaryKey, O.Length(100))
+  def name = column[String]("name", O.Length(100))
+  def aka = column[String]("aka", O.Length(100))
+  def city = column[String]("city", O.Length(100))
+  def state = column[String]("state", O.Length(100))
+  def start = column[String]("start", O.Length(100))
+  def end = column[String]("end", O.Length(100))
+  def league = column[String]("league", O.Length(100))
+  def notes = column[String]("notes", O.Length(100))
 
   def * = (id, name, aka, city, state, start, end, league, notes) <> (Ballpark.tupled, Ballpark.unapply)
 }
 
 class GameScoringTable(tag: Tag) extends Table[GameScoring](tag, "gameScoring") {
-  def id = column[String]("id", O.PrimaryKey)
-  def umphome = column[String]("umphome")
-  def ump1b = column[String]("ump1b")
-  def ump2b = column[String]("ump2b")
-  def ump3b = column[String]("ump3b")
-  def howscored = column[String]("howscored")
+  def id = column[String]("id", O.PrimaryKey, O.Length(100))
+  def umphome = column[String]("umphome", O.Length(100))
+  def ump1b = column[String]("ump1b", O.Length(100))
+  def ump2b = column[String]("ump2b", O.Length(100))
+  def ump3b = column[String]("ump3b", O.Length(100))
+  def howscored = column[String]("howscored", O.Length(100))
   def timeofgame = column[Int]("timeofgame")
   def attendance = column[Int]("attendarnce")
-  def wp = column[String]("wp")
-  def lp = column[String]("lp")
-  def save = column[String]("save")
+  def wp = column[String]("wp", O.Length(100))
+  def lp = column[String]("lp", O.Length(100))
+  def save = column[String]("save", O.Length(100))
 
   def * = (id, umphome, ump1b, ump2b, ump3b, howscored, timeofgame, attendance, wp, lp, save) <> (GameScoring.tupled, GameScoring.unapply)
 }
@@ -330,11 +349,11 @@ class GameScoringTable(tag: Tag) extends Table[GameScoring](tag, "gameScoring") 
 class PitcherDailyTable(tag: Tag) extends Table[PitcherDaily](tag, "pitcherDaily") {
   import RealityballRecords.dateTime
 
-  def id = column[String]("id")
-  def game = column[String]("game")
+  def id = column[String]("id", O.Length(100))
+  def game = column[String]("game", O.Length(100))
   def date = column[DateTime]("date")
   def daysSinceLastApp = column[Int]("daysSinceLastApp")
-  def opposing = column[String]("opposing")
+  def opposing = column[String]("opposing", O.Length(100))
 
   def win = column[Int]("win")
   def loss = column[Int]("loss")
@@ -351,7 +370,7 @@ class PitcherDailyTable(tag: Tag) extends Table[PitcherDaily](tag, "pitcherDaily
   def noHitter = column[Boolean]("noHitter")
   def pitches = column[Int]("pitches")
   def balls = column[Int]("balls")
-  def style = column[String]("style")
+  def style = column[String]("style", O.Length(100))
 
   def pk = index("pk_id_date", (id, game)) // Duplicate issue with Joaquin Benoit on 20100910
 
@@ -361,12 +380,12 @@ class PitcherDailyTable(tag: Tag) extends Table[PitcherDaily](tag, "pitcherDaily
 class LineupsTable(tag: Tag) extends Table[Lineup](tag, "lineups") {
   import RealityballRecords.dateTime
 
-  def mlbId = column[String]("mlbId")
+  def mlbId = column[String]("mlbId", O.Length(100))
   def date = column[DateTime]("date")
-  def game = column[String]("game")
-  def team = column[String]("team")
+  def game = column[String]("game", O.Length(100))
+  def team = column[String]("team", O.Length(100))
   def lineupPosition = column[Int]("lineupPosition")
-  def position = column[String]("position")
+  def position = column[String]("position", O.Length(100))
   def acesSalary = column[Option[Double]]("acesSalary")
   def draftKingsSalary = column[Option[Double]]("draftKingsSalary")
   def fanduelSalary = column[Option[Double]]("fanduelSalary")
@@ -377,13 +396,13 @@ class LineupsTable(tag: Tag) extends Table[Lineup](tag, "lineups") {
 }
 
 class PlayersTable(tag: Tag) extends Table[Player](tag, "players") {
-  def id = column[String]("id"); def year = column[String]("year");
-  def lastName = column[String]("lastName")
-  def firstName = column[String]("firstName")
-  def batsWith = column[String]("batsWith")
-  def throwsWith = column[String]("throwsWith")
-  def team = column[String]("team")
-  def position = column[String]("position")
+  def id = column[String]("id", O.Length(100)); def year = column[String]("year", O.Length(100));
+  def lastName = column[String]("lastName", O.Length(100))
+  def firstName = column[String]("firstName", O.Length(100))
+  def batsWith = column[String]("batsWith", O.Length(100))
+  def throwsWith = column[String]("throwsWith", O.Length(100))
+  def team = column[String]("team", O.Length(100))
+  def position = column[String]("position", O.Length(100))
 
   def pk = primaryKey("pk_id_date", (id, year))
 
@@ -391,11 +410,11 @@ class PlayersTable(tag: Tag) extends Table[Player](tag, "players") {
 }
 
 class IdMappingTable(tag: Tag) extends Table[IdMapping](tag, "idMapping") {
-  def mlbId = column[String]("mlbId"); def mlbName = column[String]("mlbName"); def mlbTeam = column[String]("mlbTeam")
-  def mlbPos = column[String]("mlbPos"); def bats = column[String]("bats"); def throws = column[String]("throws");
-  def brefId = column[String]("brefId"); def brefName = column[String]("brefName");
-  def espnId = column[String]("espnId"); def espnName = column[String]("espnName");
-  def retroId = column[String]("retroId"); def retroName = column[String]("retroName");
+  def mlbId = column[String]("mlbId", O.Length(100)); def mlbName = column[String]("mlbName", O.Length(100)); def mlbTeam = column[String]("mlbTeam", O.Length(100))
+  def mlbPos = column[String]("mlbPos", O.Length(100)); def bats = column[String]("bats", O.Length(100)); def throws = column[String]("throws", O.Length(100));
+  def brefId = column[String]("brefId", O.Length(100)); def brefName = column[String]("brefName", O.Length(100));
+  def espnId = column[String]("espnId", O.Length(100)); def espnName = column[String]("espnName", O.Length(100));
+  def retroId = column[String]("retroId", O.Length(100)); def retroName = column[String]("retroName", O.Length(100));
 
   def pk = primaryKey("pk_mlb_id", (mlbId))
 
@@ -405,9 +424,9 @@ class IdMappingTable(tag: Tag) extends Table[IdMapping](tag, "idMapping") {
 class HitterRawLHStatsTable(tag: Tag) extends Table[(DateTime, String, String, Int, String, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)](tag, "hitterRawLHstats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
-  def gameId = column[String]("gameId"); def side = column[Int]("side");
-  def pitcherId = column[String]("pitcherId"); def pitcherIndex = column[Int]("pitcherIndex")
+  def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
+  def gameId = column[String]("gameId", O.Length(100)); def side = column[Int]("side");
+  def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
   def LHatBat = column[Int]("LHatBat")
   def LHsingle = column[Int]("LHsingle")
   def LHdouble = column[Int]("LHdouble")
@@ -432,9 +451,9 @@ class HitterRawLHStatsTable(tag: Tag) extends Table[(DateTime, String, String, I
 class HitterRawRHStatsTable(tag: Tag) extends Table[(DateTime, String, String, Int, String, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)](tag, "hitterRawRHstats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
-  def gameId = column[String]("gameId"); def side = column[Int]("side");
-  def pitcherId = column[String]("pitcherId"); def pitcherIndex = column[Int]("pitcherIndex")
+  def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
+  def gameId = column[String]("gameId", O.Length(100)); def side = column[Int]("side");
+  def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
   def RHatBat = column[Int]("RHatBat")
   def RHsingle = column[Int]("RHsingle")
   def RHdouble = column[Int]("RHdouble")
@@ -459,10 +478,12 @@ class HitterRawRHStatsTable(tag: Tag) extends Table[(DateTime, String, String, I
 class HitterDailyStatsTable(tag: Tag) extends Table[(DateTime, String, String, Int, Int, Int, String, Int, Int, Int, Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "hitterDailyStats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
-  def gameId = column[String]("gameId"); def side = column[Int]("side");
+  def date = column[DateTime]("date")
+  def id = column[String]("id", O.Length(100))
+  def gameId = column[String]("gameId", O.Length(100))
+  def side = column[Int]("side")
   def lineupPosition = column[Int]("lineupPosition"); def lineupPositionRegime = column[Int]("lineupPositionRegime")
-  def pitcherId = column[String]("pitcherId"); def pitcherIndex = column[Int]("pitcherIndex")
+  def pitcherId = column[String]("pitcherId"); def pitcherIndex = column[Int]("pitcherIndex", O.Length(100))
   def atBats = column[Int]("ab"); def plateAppearances = column[Int]("pa")
   def RHdailyBattingAverage = column[Option[Double]]("RHdailyBattingAverage")
   def LHdailyBattingAverage = column[Option[Double]]("LHdailyBattingAverage")
@@ -490,8 +511,8 @@ class HitterDailyStatsTable(tag: Tag) extends Table[(DateTime, String, String, I
 class HitterStatsMovingTable(tag: Tag) extends Table[HitterStatsMoving](tag, "hitterMovingStats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
-  def pitcherId = column[String]("pitcherId"); def pitcherIndex = column[Int]("pitcherIndex")
+  def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
+  def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
   def RHbattingAverageMov = column[Option[Double]]("RHbattingAverageMov")
   def LHbattingAverageMov = column[Option[Double]]("LHbattingAverageMov")
   def battingAverageMov = column[Option[Double]]("battingAverageMov")
@@ -517,9 +538,9 @@ class HitterStatsMovingTable(tag: Tag) extends Table[HitterStatsMoving](tag, "hi
 class HitterFantasyTable(tag: Tag) extends Table[HitterFantasyDaily](tag, "hitterFantasyStats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
-  def gameId = column[String]("gameId"); def side = column[Int]("side");
-  def pitcherId = column[String]("pitcherId"); def pitcherIndex = column[Int]("pitcherIndex")
+  def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
+  def gameId = column[String]("gameId", O.Length(100)); def side = column[Int]("side");
+  def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
   def productionRate = column[Option[Double]]("productionRate")
   def daysSinceProduction = column[Int]("daysSinceProduction")
   def RHfanDuel = column[Option[Double]]("RHfanDuel")
@@ -545,8 +566,8 @@ class HitterFantasyTable(tag: Tag) extends Table[HitterFantasyDaily](tag, "hitte
 class HitterFantasyMovingTable(tag: Tag) extends Table[HitterFantasy](tag, "hitterFantasyMovingStats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
-  def pitcherId = column[String]("pitcherId"); def pitcherIndex = column[Int]("pitcherIndex")
+  def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
+  def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
   def RHfanDuel = column[Option[Double]]("RHfanDuel")
   def LHfanDuel = column[Option[Double]]("LHfanDuel")
   def fanDuel = column[Option[Double]]("fanDuel")
@@ -568,8 +589,8 @@ class HitterFantasyMovingTable(tag: Tag) extends Table[HitterFantasy](tag, "hitt
 class HitterFantasyVolatilityTable(tag: Tag) extends Table[HitterFantasy](tag, "hitterFantasyVolatilityStats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
-  def pitcherId = column[String]("pitcherId"); def pitcherIndex = column[Int]("pitcherIndex")
+  def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
+  def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
   def RHfanDuel = column[Option[Double]]("RHfanDuel")
   def LHfanDuel = column[Option[Double]]("LHfanDuel")
   def fanDuel = column[Option[Double]]("fanDuel")
@@ -591,8 +612,8 @@ class HitterFantasyVolatilityTable(tag: Tag) extends Table[HitterFantasy](tag, "
 class HitterStatsVolatilityTable(tag: Tag) extends Table[(DateTime, String, String, Int, Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "hitterVolatilityStats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
-  def pitcherId = column[String]("pitcherId"); def pitcherIndex = column[Int]("pitcherIndex")
+  def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
+  def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
   def RHbattingVolatility = column[Option[Double]]("RHbattingVolatility")
   def LHbattingVolatility = column[Option[Double]]("LHbattingVolatility")
   def battingVolatility = column[Option[Double]]("battingVolatility")
@@ -614,7 +635,7 @@ class HitterStatsVolatilityTable(tag: Tag) extends Table[(DateTime, String, Stri
 class PitcherFantasyTable(tag: Tag) extends Table[(DateTime, String, Option[Double], Option[Double], Option[Double])](tag, "pitcherFantasyStats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
+  def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def fanDuel = column[Option[Double]]("fanDuel")
   def draftKings = column[Option[Double]]("draftKings")
   def draftster = column[Option[Double]]("draftster")
@@ -627,7 +648,7 @@ class PitcherFantasyTable(tag: Tag) extends Table[(DateTime, String, Option[Doub
 class PitcherFantasyMovingTable(tag: Tag) extends Table[(DateTime, String, Option[Double], Option[Double], Option[Double])](tag, "pitcherFantasyMovingStats") {
   import RealityballRecords.dateTime
 
-  def date = column[DateTime]("date"); def id = column[String]("id");
+  def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def fanDuelMov = column[Option[Double]]("fanDuelMov")
   def draftKingsMov = column[Option[Double]]("draftKingsMov")
   def draftsterMov = column[Option[Double]]("draftsterMov")

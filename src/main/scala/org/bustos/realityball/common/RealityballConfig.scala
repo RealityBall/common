@@ -1,9 +1,28 @@
+/*
+
+    Copyright (C) 2019 Mauricio Bustos (m@bustos.org)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
 package org.bustos.realityball.common
 
 import org.joda.time._
 import org.joda.time.format._
-
 import slick.jdbc.MySQLProfile.api._
+
 import scala.math.pow
 import scala.util.Properties.envOrElse
 
@@ -15,7 +34,7 @@ object RealityballConfig {
   val DataRoot = "/Users/mauricio/Google Drive/Projects/fantasySports/data/"
 
   val WUNDERGROUND_APIURL = "http://api.wunderground.com/api/"
-  val WUNDERGROUND_APIKEY = "eeb51f60b8bd49aa"
+  val WUNDERGROUND_APIKEY = envOrElse("WUNDERGROUND_API_KEY", "")
 
   val CurrentYear = {
     (new DateTime).getYear
@@ -25,7 +44,7 @@ object RealityballConfig {
     val mysqlURL = envOrElse("MLB_MYSQL_URL", "jdbc:mysql://localhost:3306/mlbretrosheet")
     val mysqlUser = envOrElse("MLB_MYSQL_USER", "root")
     val mysqlPassword = envOrElse("MLB_MYSQL_PASSWORD", "")
-    Database.forURL(mysqlURL, driver = "com.mysql.cj.jdbc.Driver", user = mysqlUser, password = mysqlPassword)
+    Database.forURL(mysqlURL, driver = "com.mysql.jdbc.Driver", user = mysqlUser, password = mysqlPassword)
   }
 
   val CcyymmddFormatter = DateTimeFormat.forPattern("yyyyMMdd")
