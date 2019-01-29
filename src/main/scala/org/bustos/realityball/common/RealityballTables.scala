@@ -19,13 +19,11 @@
 
 package org.bustos.realityball.common
 
-import java.sql.Timestamp
-
+import org.bustos.realityball.common.RealityballRecords._
 import org.joda.time.DateTime
-import org.joda.time.format.{DateTimeFormatter, ISODateTimeFormat}
-import spray.json._
 import slick.jdbc.MySQLProfile.api._
-import slick.lifted.{Tag, ProvenShape, SimpleFunction, TableQuery}
+import slick.lifted.{ProvenShape, SimpleFunction, TableQuery, Tag}
+
 
 object RealityballRecords {
   import scala.collection.mutable.Queue
@@ -120,43 +118,6 @@ object RealityballRecords {
 
   val yearFromDate = SimpleFunction.unary[DateTime, Int]("year")
 
-  implicit def dateTimeOrdering: Ordering[DateTime] = Ordering.fromLessThan(_ isBefore _)
-  implicit def dateTime =
-    MappedColumnType.base[DateTime, Timestamp](
-      dt => new Timestamp(dt.getMillis),
-      ts => new DateTime(ts.getTime)
-    )
-}
-
-import org.bustos.realityball.common.RealityballRecords._
-object RealityballJsonProtocol extends DefaultJsonProtocol {
-  import RealityballRecords._
-
-  implicit object DateJsonFormat extends RootJsonFormat[DateTime] {
-    private val parserISO: DateTimeFormatter = ISODateTimeFormat.dateTimeNoMillis()
-    private val parserMillisISO: DateTimeFormatter = ISODateTimeFormat.dateTime()
-    override def write(obj: DateTime) = JsString(parserISO.print(obj))
-    override def read(json: JsValue) : DateTime = json match {
-      case JsString(s) =>
-        try {
-          parserISO.parseDateTime(s)
-        } catch {
-          case _: Throwable => parserMillisISO.parseDateTime(s)
-        }
-      case _ => throw new DeserializationException("Error info you want here ...")
-    }
-  }
-
-  implicit val playerFormat = jsonFormat8(Player)
-  implicit val playerSummaryFormat = jsonFormat8(PlayerSummary)
-  implicit val pitcherSummaryFormat = jsonFormat9(PitcherSummary)
-  implicit val playerDataFormat = jsonFormat2(PlayerData)
-  implicit val pitcherDataFormat = jsonFormat2(PitcherData)
-  implicit val teamFormat = jsonFormat13(Team)
-  implicit val gamedayScheduleFormat = jsonFormat17(GamedaySchedule)
-  implicit val gameOddsFormat = jsonFormat5(GameOdds)
-  implicit val fullGameInfoFormat = jsonFormat2(FullGameInfo)
-  implicit val injuryReportFormat = jsonFormat6(InjuryReport)
 }
 
 class TeamsTable(tag: Tag) extends Table[Team](tag, "teams") {
@@ -177,8 +138,7 @@ class TeamsTable(tag: Tag) extends Table[Team](tag, "teams") {
   def * = (year, mnemonic, league, city, name, site, zipCode, mlbComId, mlbComName, timeZone, coversComId, coversComName, coversComFullName) <> (Team.tupled, Team.unapply)
 }
 
-class GamesTable(tag: Tag) extends Table[Game](tag, "games") {
-  import RealityballRecords.dateTime
+class GamesTable(tag: Tag) extends Table[Game](tag, "games") with RealityballJsonProtocol {
 
   def id = column[String]("id", O.PrimaryKey, O.Length(100))
   def homeTeam = column[String]("homeTeam", O.Length(100))
@@ -192,8 +152,7 @@ class GamesTable(tag: Tag) extends Table[Game](tag, "games") {
   def * = (id, homeTeam, visitingTeam, site, date, number, startingHomePitcher, startingVisitingPitcher) <> (Game.tupled, Game.unapply)
 }
 
-class GameConditionsTable(tag: Tag) extends Table[GameConditions](tag, "gameConditions") {
-  import RealityballRecords.dateTime
+class GameConditionsTable(tag: Tag) extends Table[GameConditions](tag, "gameConditions") with RealityballJsonProtocol {
 
   def id = column[String]("id", O.PrimaryKey, O.Length(100))
   def startTime = column[DateTime]("startTime")
@@ -209,8 +168,7 @@ class GameConditionsTable(tag: Tag) extends Table[GameConditions](tag, "gameCond
   def * = (id, startTime, daynight, usedh, temp, winddir, windspeed, fieldcond, precip, sky) <> (GameConditions.tupled, GameConditions.unapply)
 }
 
-class GamedayScheduleTable(tag: Tag) extends Table[GamedaySchedule](tag, "gamedaySchedule") {
-  import RealityballRecords.dateTime
+class GamedayScheduleTable(tag: Tag) extends Table[GamedaySchedule](tag, "gamedaySchedule") with RealityballJsonProtocol {
 
   def id = column[String]("id", O.PrimaryKey, O.Length(100))
   def homeTeam = column[String]("homeTeam", O.Length(100))
@@ -233,8 +191,7 @@ class GamedayScheduleTable(tag: Tag) extends Table[GamedaySchedule](tag, "gameda
   def * = (id, homeTeam, visitingTeam, site, date, number, result, winningPitcher, losingPitcher, record, startingHomePitcher, startingVisitingPitcher, temp, winddir, windspeed, precip, sky) <> (GamedaySchedule.tupled, GamedaySchedule.unapply)
 }
 
-class FantasyPredictionTable(tag: Tag) extends Table[FantasyPrediction](tag, "fantasyPrediction") {
-  import RealityballRecords.dateTime
+class FantasyPredictionTable(tag: Tag) extends Table[FantasyPrediction](tag, "fantasyPrediction") with RealityballJsonProtocol {
 
   def id = column[String]("id", O.Length(100))
   def date = column[DateTime]("date")
@@ -280,8 +237,7 @@ class GameOddsTable(tag: Tag) extends Table[GameOdds](tag, "gameOdds") {
   def * = (id, visitorML, homeML, overUnder, overUnderML) <> (GameOdds.tupled, GameOdds.unapply)
 }
 
-class InjuryReportTable(tag: Tag) extends Table[InjuryReport](tag, "InjuryReport") {
-  import RealityballRecords.dateTime
+class InjuryReportTable(tag: Tag) extends Table[InjuryReport](tag, "InjuryReport") with RealityballJsonProtocol {
 
   def mlbId = column[String]("mlbId", O.Length(100))
   def reportTime = column[DateTime]("reportTime")
@@ -293,8 +249,7 @@ class InjuryReportTable(tag: Tag) extends Table[InjuryReport](tag, "InjuryReport
   def * = (mlbId, reportTime, injuryReportDate, status, dueBack, injury) <> (InjuryReport.tupled, InjuryReport.unapply)
 }
 
-class BallparkDailiesTable(tag: Tag) extends Table[BallparkDaily](tag, "ballparkDailies") {
-  import RealityballRecords.dateTime
+class BallparkDailiesTable(tag: Tag) extends Table[BallparkDaily](tag, "ballparkDailies") with RealityballJsonProtocol {
 
   def id = column[String]("id", O.Length(100))
   def date = column[DateTime]("date")
@@ -346,8 +301,7 @@ class GameScoringTable(tag: Tag) extends Table[GameScoring](tag, "gameScoring") 
   def * = (id, umphome, ump1b, ump2b, ump3b, howscored, timeofgame, attendance, wp, lp, save) <> (GameScoring.tupled, GameScoring.unapply)
 }
 
-class PitcherDailyTable(tag: Tag) extends Table[PitcherDaily](tag, "pitcherDaily") {
-  import RealityballRecords.dateTime
+class PitcherDailyTable(tag: Tag) extends Table[PitcherDaily](tag, "pitcherDaily") with RealityballJsonProtocol {
 
   def id = column[String]("id", O.Length(100))
   def game = column[String]("game", O.Length(100))
@@ -377,8 +331,7 @@ class PitcherDailyTable(tag: Tag) extends Table[PitcherDaily](tag, "pitcherDaily
   def * = (id, game, date, daysSinceLastApp, opposing, win, loss, save, hits, walks, hitByPitch, strikeOuts, groundOuts, flyOuts, earnedRuns, outs, shutout, noHitter, pitches, balls, style) <> (PitcherDaily.tupled, PitcherDaily.unapply)
 }
 
-class LineupsTable(tag: Tag) extends Table[Lineup](tag, "lineups") {
-  import RealityballRecords.dateTime
+class LineupsTable(tag: Tag) extends Table[Lineup](tag, "lineups") with RealityballJsonProtocol {
 
   def mlbId = column[String]("mlbId", O.Length(100))
   def date = column[DateTime]("date")
@@ -421,8 +374,7 @@ class IdMappingTable(tag: Tag) extends Table[IdMapping](tag, "idMapping") {
   def * = (mlbId, mlbName, mlbTeam, mlbPos, bats, throws, brefId, brefName, espnId, espnName, retroId, retroName) <> (IdMapping.tupled, IdMapping.unapply)
 }
 
-class HitterRawLHStatsTable(tag: Tag) extends Table[(DateTime, String, String, Int, String, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)](tag, "hitterRawLHstats") {
-  import RealityballRecords.dateTime
+class HitterRawLHStatsTable(tag: Tag) extends Table[(DateTime, String, String, Int, String, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)](tag, "hitterRawLHstats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def gameId = column[String]("gameId", O.Length(100)); def side = column[Int]("side");
@@ -448,8 +400,7 @@ class HitterRawLHStatsTable(tag: Tag) extends Table[(DateTime, String, String, I
     (date, id, gameId, side, pitcherId, pitcherIndex, LHatBat, LHsingle, LHdouble, LHtriple, LHhomeRun, LHRBI, LHruns, LHbaseOnBalls, LHhitByPitch, LHsacFly, LHsacHit, LHstrikeOut, LHflyBall, LHgroundBall)
 }
 
-class HitterRawRHStatsTable(tag: Tag) extends Table[(DateTime, String, String, Int, String, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)](tag, "hitterRawRHstats") {
-  import RealityballRecords.dateTime
+class HitterRawRHStatsTable(tag: Tag) extends Table[(DateTime, String, String, Int, String, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)](tag, "hitterRawRHstats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def gameId = column[String]("gameId", O.Length(100)); def side = column[Int]("side");
@@ -475,8 +426,7 @@ class HitterRawRHStatsTable(tag: Tag) extends Table[(DateTime, String, String, I
     (date, id, gameId, side, pitcherId, pitcherIndex, RHatBat, RHsingle, RHdouble, RHtriple, RHhomeRun, RHRBI, RHruns, RHbaseOnBalls, RHhitByPitch, RHsacFly, RHsacHit, RHstrikeOut, RHflyBall, RHgroundBall)
 }
 
-class HitterDailyStatsTable(tag: Tag) extends Table[(DateTime, String, String, Int, Int, Int, String, Int, Int, Int, Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "hitterDailyStats") {
-  import RealityballRecords.dateTime
+class HitterDailyStatsTable(tag: Tag) extends Table[(DateTime, String, String, Int, Int, Int, String, Int, Int, Int, Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "hitterDailyStats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date")
   def id = column[String]("id", O.Length(100))
@@ -508,8 +458,7 @@ class HitterDailyStatsTable(tag: Tag) extends Table[(DateTime, String, String, I
     RHsluggingPercentage, LHsluggingPercentage, sluggingPercentage)
 }
 
-class HitterStatsMovingTable(tag: Tag) extends Table[HitterStatsMoving](tag, "hitterMovingStats") {
-  import RealityballRecords.dateTime
+class HitterStatsMovingTable(tag: Tag) extends Table[HitterStatsMoving](tag, "hitterMovingStats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
@@ -535,8 +484,7 @@ class HitterStatsMovingTable(tag: Tag) extends Table[HitterStatsMoving](tag, "hi
     RHstyle, LHstyle, style) <> (HitterStatsMoving.tupled, HitterStatsMoving.unapply)
 }
 
-class HitterFantasyTable(tag: Tag) extends Table[HitterFantasyDaily](tag, "hitterFantasyStats") {
-  import RealityballRecords.dateTime
+class HitterFantasyTable(tag: Tag) extends Table[HitterFantasyDaily](tag, "hitterFantasyStats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def gameId = column[String]("gameId", O.Length(100)); def side = column[Int]("side");
@@ -563,8 +511,7 @@ class HitterFantasyTable(tag: Tag) extends Table[HitterFantasyDaily](tag, "hitte
     RHdraftster, LHdraftster, draftster) <> (HitterFantasyDaily.tupled, HitterFantasyDaily.unapply)
 }
 
-class HitterFantasyMovingTable(tag: Tag) extends Table[HitterFantasy](tag, "hitterFantasyMovingStats") {
-  import RealityballRecords.dateTime
+class HitterFantasyMovingTable(tag: Tag) extends Table[HitterFantasy](tag, "hitterFantasyMovingStats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
@@ -586,8 +533,7 @@ class HitterFantasyMovingTable(tag: Tag) extends Table[HitterFantasy](tag, "hitt
     RHdraftster, LHdraftster, draftster) <> (HitterFantasy.tupled, HitterFantasy.unapply)
 }
 
-class HitterFantasyVolatilityTable(tag: Tag) extends Table[HitterFantasy](tag, "hitterFantasyVolatilityStats") {
-  import RealityballRecords.dateTime
+class HitterFantasyVolatilityTable(tag: Tag) extends Table[HitterFantasy](tag, "hitterFantasyVolatilityStats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
@@ -609,8 +555,7 @@ class HitterFantasyVolatilityTable(tag: Tag) extends Table[HitterFantasy](tag, "
     RHdraftster, LHdraftster, draftster) <> (HitterFantasy.tupled, HitterFantasy.unapply)
 }
 
-class HitterStatsVolatilityTable(tag: Tag) extends Table[(DateTime, String, String, Int, Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "hitterVolatilityStats") {
-  import RealityballRecords.dateTime
+class HitterStatsVolatilityTable(tag: Tag) extends Table[(DateTime, String, String, Int, Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "hitterVolatilityStats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def pitcherId = column[String]("pitcherId", O.Length(100)); def pitcherIndex = column[Int]("pitcherIndex")
@@ -632,8 +577,7 @@ class HitterStatsVolatilityTable(tag: Tag) extends Table[(DateTime, String, Stri
     RHsluggingVolatility, LHsluggingVolatility, sluggingVolatility)
 }
 
-class PitcherFantasyTable(tag: Tag) extends Table[(DateTime, String, Option[Double], Option[Double], Option[Double])](tag, "pitcherFantasyStats") {
-  import RealityballRecords.dateTime
+class PitcherFantasyTable(tag: Tag) extends Table[(DateTime, String, Option[Double], Option[Double], Option[Double])](tag, "pitcherFantasyStats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def fanDuel = column[Option[Double]]("fanDuel")
@@ -645,8 +589,7 @@ class PitcherFantasyTable(tag: Tag) extends Table[(DateTime, String, Option[Doub
   def * = (date, id, fanDuel, draftKings, draftster)
 }
 
-class PitcherFantasyMovingTable(tag: Tag) extends Table[(DateTime, String, Option[Double], Option[Double], Option[Double])](tag, "pitcherFantasyMovingStats") {
-  import RealityballRecords.dateTime
+class PitcherFantasyMovingTable(tag: Tag) extends Table[(DateTime, String, Option[Double], Option[Double], Option[Double])](tag, "pitcherFantasyMovingStats") with RealityballJsonProtocol {
 
   def date = column[DateTime]("date"); def id = column[String]("id", O.Length(100));
   def fanDuelMov = column[Option[Double]]("fanDuelMov")

@@ -31,7 +31,7 @@ import spray.json._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration._
 
-class RealityballData {
+class RealityballData extends RealityballJsonProtocol {
 
   import GoogleTableJsonProtocol._
   import RealityballRecords._
@@ -53,11 +53,14 @@ class RealityballData {
   }
 
   def games(date: DateTime): List[Game] = {
-      val todaysGames = Await.result(db.run(gamesTable.filter({ x => x.date === date }).result), Inf).toList
-      if (todaysGames.isEmpty) {
-        Await.result(db.run(gamedayScheduleTable.filter({ x => x.date === date}).result), Inf).toList.map ({ x => Game(x.id, x.homeTeam, x.visitingTeam, x.site, date, x.number, x.startingHomePitcher, x.startingVisitingPitcher) })
-      }
-      else todaysGames
+
+    val todaysGames = {
+      Await.result(db.run(gamesTable.filter({ x => x.date === date }).result), Inf).toList
+    }
+    if (todaysGames.isEmpty) {
+      Await.result(db.run(gamedayScheduleTable.filter({ x => x.date === date}).result), Inf).toList.map ({ x => Game(x.id, x.homeTeam, x.visitingTeam, x.site, date, x.number, x.startingHomePitcher, x.startingVisitingPitcher) })
+    }
+    else todaysGames
   }
 
   def startingBatters(game: Game, side: Int, year: String): List[Player] = {
@@ -474,8 +477,7 @@ class RealityballData {
             from
               hitterRawLHstats a, hitterRawRHstats b
             where
-              a.id = $id and a.id = b.id and a.gameId = b.gameId and instr(a.date, $year) > 0
-                                            |            """.as[(Double, Double, Double, Double)]), Inf).head
+              a.id = $id and a.id = b.id and a.gameId = b.gameId and instr(a.date, $year) > 0""".as[(Double, Double, Double, Double)]), Inf).head
       List(("Strikeouts", result._1), ("Flyball", result._2), ("Groundball", result._3), ("Base On Balls", result._4))
     }
   }
