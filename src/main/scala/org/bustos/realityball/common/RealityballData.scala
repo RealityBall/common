@@ -58,7 +58,7 @@ class RealityballData extends RealityballJsonProtocol {
       Await.result(db.run(gamesTable.filter({ x => x.date === date }).result), Inf).toList
     }
     if (todaysGames.isEmpty) {
-      Await.result(db.run(gamedayScheduleTable.filter({ x => x.date === date}).result), Inf).toList.map ({ x => Game(x.id, x.homeTeam, x.visitingTeam, x.site, date, x.number, x.startingHomePitcher, x.startingVisitingPitcher) })
+      Await.result(db.run(gamedayScheduleTable.filter({ x => x.date === date}).result), Inf).toList.map ({ x => Game(x.id, x.homeTeam, x.visitingTeam, x.site, date, x.number, x.startingHomePitcher, x.startingVisitingPitcher, "") })
     }
     else todaysGames
   }
@@ -690,9 +690,7 @@ class RealityballData extends RealityballJsonProtocol {
     }
   }
 
-  def odds(game: Game): GameOdds = {
-    Await.result(db.run(gameOddsTable.filter({ x => x.id === game.id }).result), Inf).head
-  }
+  def odds(game: Game): GameOdds = Await.result(db.run(gameOddsTable.filter({ x => x.id === game.id }).result), Inf).head
 
   def schedule(team: String, year: String): List[FullGameInfo] = {
     val lookingOut = (new DateTime).plusMonths(3)

@@ -47,7 +47,7 @@ object RealityballRecords {
   case class PitcherDaily(id: String, game: String, date: DateTime, var daysSinceLastApp: Int, opposing: String, var win: Int, var loss: Int, var save: Int,
                           var hits: Int, var walks: Int, var hitByPitch: Int, var strikeOuts: Int, var groundOuts: Int, var flyOuts: Int,
                           var earnedRuns: Int, var outs: Int, var shutout: Boolean, var noHitter: Boolean, var pitches: Int, var balls: Int, var style: String)
-  case class Game(id: String, var homeTeam: String, var visitingTeam: String, var site: String, var date: DateTime, var number: Int, var startingHomePitcher: String, var startingVisitingPitcher: String)
+  case class Game(id: String, var homeTeam: String, var visitingTeam: String, var site: String, var date: DateTime, var number: Int, var startingHomePitcher: String, var startingVisitingPitcher: String, gamedayUrl: String)
   case class GameConditions(id: String, var startTime: DateTime, var daynight: String, var usedh: Boolean,
                             var temp: Int, var winddir: String, var windspeed: Int, var fieldcond: String, var precip: String, var sky: String)
   case class GamedaySchedule(var id: String, homeTeam: String, visitingTeam: String, site: String, date: DateTime, number: Int,
@@ -148,8 +148,9 @@ class GamesTable(tag: Tag) extends Table[Game](tag, "games") with RealityballJso
   def number = column[Int]("number")
   def startingHomePitcher = column[String]("startingHomePitcher", O.Length(100))
   def startingVisitingPitcher = column[String]("startingVisitingPitcher", O.Length(100))
+  def gamedayUrl = column[String]("gamedayUrl", O.Length(255))
 
-  def * = (id, homeTeam, visitingTeam, site, date, number, startingHomePitcher, startingVisitingPitcher) <> (Game.tupled, Game.unapply)
+  def * = (id, homeTeam, visitingTeam, site, date, number, startingHomePitcher, startingVisitingPitcher, gamedayUrl) <> (Game.tupled, Game.unapply)
 }
 
 class GameConditionsTable(tag: Tag) extends Table[GameConditions](tag, "gameConditions") with RealityballJsonProtocol {
@@ -241,7 +242,7 @@ class InjuryReportTable(tag: Tag) extends Table[InjuryReport](tag, "InjuryReport
 
   def mlbId = column[String]("mlbId", O.Length(100))
   def reportTime = column[DateTime]("reportTime")
-  def injuryReportDate = column[DateTime]("injuryReportDate")
+  def injuryReportDate = column[DateTime]("injuryReportDate", O.SqlType("timestamp DEFAULT CURRENT_TIMESTAMP"))
   def status = column[String]("status", O.Length(100))
   def dueBack = column[String]("dueBack", O.Length(100))
   def injury = column[String]("injury", O.Length(100))
